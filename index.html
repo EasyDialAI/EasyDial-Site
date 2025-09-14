@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EasyDial AI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .step-card {
+            transition: all 0.3s ease-in-out;
+            opacity: 1;
+        }
+        .step-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-xl */
+        }
+        .step-card.disabled {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        .loader {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25em 0.6em;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border-radius: 9999px;
+        }
+        .status-badge.green { background-color: #d1fae5; color: #065f46; }
+        .status-badge.yellow { background-color: #fef3c7; color: #92400e; }
+        .status-badge.blue { background-color: #dbeafe; color: #1e40af; }
+        .status-badge.red { background-color: #fee2e2; color: #991b1b; }
+        #resultsTable tbody tr, #callLogsTable tbody tr, #manualContactsTable tbody tr {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-bar {
+            transition: height 0.5s ease-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <!-- Auth Page -->
+    <div id="authContainer" class="fixed inset-0 bg-slate-50 z-[100] flex items-start justify-center p-4 sm:py-12 overflow-y-auto transition-opacity duration-300 ease-in-out">
+        <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+            <h2 class="text-3xl font-bold text-center text-slate-900 mb-2">Welcome to EasyDial AI</h2>
+            <p class="text-center text-slate-500 mb-6">Your intelligent calling solution.</p>
+            
+            <form id="authForm" class="space-y-4">
+                <div id="companyNameField" class="hidden">
+                    <label for="companyName" class="block text-sm font-medium text-slate-700">Company Name</label>
+                    <input type="text" name="companyName" id="companyName" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div id="industryField" class="hidden">
+                    <label for="industry" class="block text-sm font-medium text-slate-700">Industry</label>
+                    <input type="text" name="industry" id="industry" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div id="companySizeField" class="hidden">
+                    <label for="companySize" class="block text-sm font-medium text-slate-700">Company Size</label>
+                     <select id="companySize" name="companySize" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
+                        <option>1-10 employees</option>
+                        <option>11-50 employees</option>
+                        <option>51-200 employees</option>
+                        <option>201-500 employees</option>
+                        <option>500+ employees</option>
+                    </select>
+                </div>
+                 <div>
+                    <label for="email" class="block text-sm font-medium text-slate-700">Email Address</label>
+                    <input type="email" name="email" id="email" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+                    <input type="password" name="password" id="password" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <button type="submit" id="authSubmitBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-6">
+                        Log in
+                    </button>
+                </div>
+            </form>
+
+            <div id="loginToggleText" class="mt-6 text-center text-sm text-slate-500">
+                Don't have an account?
+                <button type="button" id="switchToSignupBtn" class="font-medium text-blue-600 hover:text-blue-500 focus:outline-none">Sign up</button>
+            </div>
+
+            <div id="signupToggleText" class="hidden mt-6 text-center text-sm text-slate-500">
+                Already have an account?
+                <button type="button" id="switchToLoginBtn" class="font-medium text-blue-600 hover:text-blue-500 focus:outline-none">Log in</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="appContainer" class="hidden">
+        <!-- Hamburger Menu Button -->
+        <button id="openSidebarBtn" class="lg:hidden text-white bg-slate-800 p-2 rounded-md shadow-lg fixed top-6 left-6 z-30 focus:outline-none focus:ring-2 focus:ring-slate-500">
+            <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+        </button>
+        
+        <!-- Sidebar Overlay -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden lg:hidden"></div>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-64 bg-slate-800 p-6 flex flex-col fixed top-0 left-0 h-screen z-50 transition-transform -translate-x-full lg:translate-x-0 ease-in-out duration-300">
+            <div class="flex items-center justify-between mb-10">
+                <h2 id="sidebarCompanyName" class="text-2xl font-bold text-white">EasyDial AI</h2>
+                <button id="closeSidebarBtn" class="lg:hidden text-slate-400 hover:text-white">
+                    <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <nav>
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" id="navDashboard" class="flex items-center px-4 py-2 text-base font-semibold text-white bg-blue-600 rounded-lg transition-all duration-200 ease-in-out transform hover:translate-x-1">
+                            <svg class="h-6 w-6 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" /></svg>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="navCallLogs" class="flex items-center px-4 py-2 text-base font-semibold text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-all duration-200 ease-in-out transform hover:translate-x-1">
+                            <svg class="h-6 w-6 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                            Call Logs
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="lg:ml-64">
+            <div id="dashboardView" class="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
+                <!-- Header -->
+                <header class="text-center mb-12">
+                    <h1 class="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">EasyDial AI</h1>
+                    <p class="mt-4 text-lg text-slate-600">Automate your appointment reminders and updates with a personalized, AI-powered voice.</p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <!-- Box 1: Clone Voice -->
+                    <section id="step1" class="step-card bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center mb-4">
+                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg></div>
+                                <div class="ml-4">
+                                    <h2 class="text-xl font-semibold text-slate-900">Clone Your Voice</h2>
+                                    <p class="text-slate-500 text-sm">Create a natural, AI-generated voice.</p>
+                                </div>
+                            </div>
+                            <div class="mt-6 bg-slate-50 p-4 rounded-lg">
+                                <div id="cloneInitialState" class="flex flex-col items-center justify-between">
+                                    <div id="voiceStatus" class="flex items-center mb-4"><svg id="voiceStatusIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span id="voiceStatusText" class="font-medium">Status: Not Cloned</span></div>
+                                    <button id="initiateCloneBtn" class="w-full flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"><span>Clone Voice</span></button>
+                                </div>
+                                <div id="cloneUploadState" class="hidden space-y-4">
+                                    <p class="text-sm text-slate-600">Upload a clear audio recording (.wav, .mp3) of your voice.</p>
+                                    <div class="flex flex-col items-center justify-between">
+                                        <div class="w-full mb-4">
+                                            <label for="audio-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-4 py-2 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg><span id="audioFileName">Upload audio file</span><input id="audio-upload" name="audio-upload" type="file" class="sr-only" accept="audio/*"></label>
+                                        </div>
+                                        <button id="startCloningBtn" class="w-full flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed" disabled><span id="startCloningBtnText">Start Cloning</span><div id="startCloningBtnLoader" class="loader hidden ml-2"></div></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Box 2: Create Campaign -->
+                    <section id="step2" class="step-card bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center mb-4"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></div><div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Create Campaign</h2><p class="text-slate-500 text-sm">Start your calling campaign.</p></div></div>
+                            <div class="mt-6 flex flex-col items-center justify-between bg-slate-50 p-4 rounded-lg">
+                                <div class="w-full mb-4">
+                                    <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-4 py-2 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg><span id="fileName">Upload .xlsx file</span><input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".xlsx, .xls, .csv"></label>
+                                </div>
+                                <div class="text-slate-500 my-2">or</div>
+                                <button id="manualEntryBtn" class="w-full bg-white text-blue-600 font-semibold py-2 px-5 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">Add Manually</button>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <button id="createCampaignBtn" class="w-full bg-blue-600 text-white font-semibold py-2 px-8 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed" disabled>Create Campaign</button>
+                            <p id="campaignReadyText" class="text-xs text-slate-500 mt-2 h-4"></p>
+                        </div>
+                    </section>
+
+                    <!-- Box 3: Call Activity -->
+                    <section class="step-card bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center mb-4">
+                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <h2 class="text-xl font-semibold text-slate-900">Call Activity</h2>
+                                    <p class="text-slate-500 text-sm">See your campaign performance at a glance.</p>
+                                </div>
+                            </div>
+                            <div class="mt-6 space-y-4">
+                                <div>
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-base font-medium text-green-700">Confirmed Calls</span>
+                                        <span class="text-sm font-medium text-green-700">82%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2.5">
+                                        <div class="bg-green-500 h-2.5 rounded-full" style="width: 82%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-base font-medium text-yellow-700">Rescheduled Calls</span>
+                                        <span class="text-sm font-medium text-yellow-700">11%</span>
+                                    </div>
+                                    <div class="w-full bg-slate-200 rounded-full h-2.5">
+                                        <div class="bg-yellow-400 h-2.5 rounded-full" style="width: 11%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                    
+                    <!-- Box 4: Report Section -->
+                     <section class="step-card bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center mb-4">
+                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <h2 class="text-xl font-semibold text-slate-900">Report Section</h2>
+                                    <p class="text-slate-500 text-sm">Dive deep into call analytics.</p>
+                                </div>
+                            </div>
+                            <p class="mt-6 text-sm text-slate-600">Access detailed reports with charts and diagrams to analyze call outcomes and campaign effectiveness over time.</p>
+                        </div>
+                         <div class="mt-4 text-center">
+                            <button id="viewReportsBtn" class="w-full bg-white text-blue-600 font-semibold py-2 px-5 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">View Reports</button>
+                        </div>
+                    </section>
+                </div>
+
+                <section id="step3" class="hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <div class="flex items-center mb-6"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg></div><div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Live Campaign Results</h2><p class="text-slate-500">Tracking call outcomes in real-time. Do not close this window.</p></div></div><div class="overflow-x-auto"><table id="resultsTable" class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact Name</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th></tr></thead><tbody class="bg-white divide-y divide-slate-200"></tbody></table></div>
+                </section>
+            </div>
+
+            <!-- Call Logs View -->
+            <div id="callLogsView" class="hidden container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+                <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <div class="flex items-center mb-6">
+                        <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                        </div>
+                        <div class="ml-4">
+                            <h2 class="text-2xl font-semibold text-slate-900">Call Logs</h2>
+                            <p class="text-slate-500">A complete history of all automated calls made by the system.</p>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table id="callLogsTable" class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment Date</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment Time</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reason Of Appointment</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-slate-200">
+                                <!-- This will be filled by your AI application -->
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Maria Garcia</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">(555) 123-4567</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">2024-09-15</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">10:30 AM</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Quarterly Check-up</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="status-badge green">Confirmed</span></td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">John Smith</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">(555) 234-5678</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">2024-09-15</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">02:00 PM</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Follow-up</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="status-badge yellow">Left Voicemail</span></td>
+                                </tr>
+                                 <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">David Miller</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">(555) 567-8901</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">2024-09-16</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">11:00 AM</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Dental Cleaning</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="status-badge red">Call Failed</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Manual Entry View -->
+            <div id="manualEntryView" class="hidden container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
+                 <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-2xl font-semibold text-slate-900">Add Contacts Manually</h2>
+                                <p class="text-slate-500">Enter contact and appointment details below.</p>
+                            </div>
+                        </div>
+                         <button id="returnToDashboardBtn" class="bg-slate-100 text-slate-700 font-semibold py-2 px-5 rounded-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors">Return to Dashboard</button>
+                    </div>
+
+                    <form id="manualContactForm" class="p-4 bg-slate-50 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label for="contactName" class="block text-sm font-medium text-slate-700">Name</label>
+                            <input type="text" name="contactName" id="contactName" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="contactPhone" class="block text-sm font-medium text-slate-700">Phone Number</label>
+                            <input type="tel" name="contactPhone" id="contactPhone" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="contactDate" class="block text-sm font-medium text-slate-700">Appointment Date</label>
+                            <input type="date" name="contactDate" id="contactDate" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label for="contactTime" class="block text-sm font-medium text-slate-700">Appointment Time</label>
+                            <input type="time" name="contactTime" id="contactTime" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label for="contactReason" class="block text-sm font-medium text-slate-700">Reason for Appointment</label>
+                            <input type="text" name="contactReason" id="contactReason" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="md:col-span-2 text-right">
+                             <button type="submit" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">Add Contact</button>
+                        </div>
+                    </form>
+                    
+                    <h3 class="text-lg font-semibold text-slate-800 mb-2">Added Contacts</h3>
+                    <div class="overflow-x-auto border rounded-lg">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="manualContactsTableBody" class="bg-white divide-y divide-slate-200">
+                                <tr id="noManualContactsRow"><td colspan="4" class="text-center text-slate-500 py-6">No contacts added yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+            
+            <!-- Reports View -->
+            <div id="reportsView" class="hidden container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+                <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <div class="flex items-center justify-between mb-8">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-2xl font-semibold text-slate-900">Call Reports</h2>
+                                <p class="text-slate-500">In-depth analysis of your campaign performance.</p>
+                            </div>
+                        </div>
+                         <button id="returnToDashboardFromReportsBtn" class="bg-slate-100 text-slate-700 font-semibold py-2 px-5 rounded-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors">Return to Dashboard</button>
+                    </div>
+                    
+                    <!-- Summary Stats -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Total Calls</p><p class="text-3xl font-bold text-slate-800">150</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Confirmed</p><p class="text-3xl font-bold text-green-600">123</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Voicemails</p><p class="text-3xl font-bold text-yellow-600">16</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Answer Rate</p><p class="text-3xl font-bold text-blue-600">92%</p></div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-2 bg-slate-50 p-6 rounded-lg">
+                            <h3 class="font-semibold text-slate-800 mb-4">Call Outcomes</h3>
+                            <div class="flex items-center justify-center">
+                                <!-- Donut Chart SVG -->
+                                <svg width="200" height="200" viewBox="0 0 120 120" class="transform -rotate-90">
+                                    <circle cx="60" cy="60" r="50" fill="transparent" stroke="#e2e8f0" stroke-width="20" />
+                                    <circle cx="60" cy="60" r="50" fill="transparent" stroke="#22c55e" stroke-width="20" stroke-dasharray="257.6" stroke-dashoffset="0" /> <!-- 82% -->
+                                    <circle cx="60" cy="60" r="50" fill="transparent" stroke="#f59e0b" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="-257.6" /> <!-- 11% -->
+                                     <circle cx="60" cy="60" r="50" fill="transparent" stroke="#3b82f6" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="-292.1" /> <!-- 7% -->
+                                </svg>
+                            </div>
+                            <div class="mt-4 space-y-2 text-sm">
+                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>Confirmed <span class="ml-auto font-medium">82%</span></div>
+                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-yellow-400 mr-2"></span>Rescheduled / Voicemail <span class="ml-auto font-medium">11%</span></div>
+                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-blue-500 mr-2"></span>Other <span class="ml-auto font-medium">7%</span></div>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-3 bg-slate-50 p-6 rounded-lg">
+                            <h3 class="font-semibold text-slate-800 mb-4">Call Activity this Week</h3>
+                            <div class="flex justify-between items-end h-48 space-x-2">
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-400 rounded-t-md" style="height: 60%;"></span><span class="text-xs mt-2 text-slate-500">Mon</span></div>
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-500 rounded-t-md" style="height: 80%;"></span><span class="text-xs mt-2 text-slate-500">Tue</span></div>
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-400 rounded-t-md" style="height: 50%;"></span><span class="text-xs mt-2 text-slate-500">Wed</span></div>
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-500 rounded-t-md" style="height: 90%;"></span><span class="text-xs mt-2 text-slate-500">Thu</span></div>
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-600 rounded-t-md" style="height: 100%;"></span><span class="text-xs mt-2 text-slate-500">Fri</span></div>
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-300 rounded-t-md" style="height: 30%;"></span><span class="text-xs mt-2 text-slate-500">Sat</span></div>
+                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-300 rounded-t-md" style="height: 20%;"></span><span class="text-xs mt-2 text-slate-500">Sun</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- AUTH ELEMENTS ---
+            const authContainer = document.getElementById('authContainer');
+            const appContainer = document.getElementById('appContainer');
+            const authForm = document.getElementById('authForm');
+            const companyNameInput = document.getElementById('companyName');
+            const companyNameField = document.getElementById('companyNameField');
+            const industryField = document.getElementById('industryField');
+            const companySizeField = document.getElementById('companySizeField');
+            const authSubmitBtn = document.getElementById('authSubmitBtn');
+            const switchToSignupBtn = document.getElementById('switchToSignupBtn');
+            const switchToLoginBtn = document.getElementById('switchToLoginBtn');
+            const loginToggleText = document.getElementById('loginToggleText');
+            const signupToggleText = document.getElementById('signupToggleText');
+            
+            // --- APP ELEMENTS ---
+            const sidebarCompanyName = document.getElementById('sidebarCompanyName');
+            const step1 = document.getElementById('step1');
+            const step2 = document.getElementById('step2');
+            const step3 = document.getElementById('step3');
+            const initiateCloneBtn = document.getElementById('initiateCloneBtn');
+            const cloneInitialState = document.getElementById('cloneInitialState');
+            const cloneUploadState = document.getElementById('cloneUploadState');
+            const audioUpload = document.getElementById('audio-upload');
+            const audioFileName = document.getElementById('audioFileName');
+            const startCloningBtn = document.getElementById('startCloningBtn');
+            const startCloningBtnText = document.getElementById('startCloningBtnText');
+            const startCloningBtnLoader = document.getElementById('startCloningBtnLoader');
+            const voiceStatus = document.getElementById('voiceStatus');
+            const voiceStatusIcon = document.getElementById('voiceStatusIcon');
+            const voiceStatusText = document.getElementById('voiceStatusText');
+            const fileUpload = document.getElementById('file-upload');
+            const fileNameEl = document.getElementById('fileName');
+            const createCampaignBtn = document.getElementById('createCampaignBtn');
+            const resultsTableBody = document.querySelector('#resultsTable tbody');
+            const navDashboard = document.getElementById('navDashboard');
+            const navCallLogs = document.getElementById('navCallLogs');
+            const dashboardView = document.getElementById('dashboardView');
+            const callLogsView = document.getElementById('callLogsView');
+            const manualEntryView = document.getElementById('manualEntryView');
+            const reportsView = document.getElementById('reportsView');
+            const openSidebarBtn = document.getElementById('openSidebarBtn');
+            const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            const manualEntryBtn = document.getElementById('manualEntryBtn');
+            const returnToDashboardBtn = document.getElementById('returnToDashboardBtn');
+            const returnToDashboardFromReportsBtn = document.getElementById('returnToDashboardFromReportsBtn');
+            const manualContactForm = document.getElementById('manualContactForm');
+            const manualContactsTableBody = document.getElementById('manualContactsTableBody');
+            const noManualContactsRow = document.getElementById('noManualContactsRow');
+            const campaignReadyText = document.getElementById('campaignReadyText');
+            const viewReportsBtn = document.getElementById('viewReportsBtn');
+
+
+            // --- STATE ---
+            let isVoiceCloned = false;
+            let isFileUploaded = false;
+            let isAudioFileUploaded = false;
+            let manualContacts = [];
+
+            // --- AUTH LOGIC ---
+            let isSignUp = false;
+            switchToSignupBtn.addEventListener('click', () => {
+                isSignUp = true;
+                companyNameField.classList.remove('hidden');
+                industryField.classList.remove('hidden');
+                companySizeField.classList.remove('hidden');
+                authSubmitBtn.textContent = 'Sign up';
+                loginToggleText.classList.add('hidden');
+                signupToggleText.classList.remove('hidden');
+            });
+
+            switchToLoginBtn.addEventListener('click', () => {
+                isSignUp = false;
+                companyNameField.classList.add('hidden');
+                industryField.classList.add('hidden');
+                companySizeField.classList.add('hidden');
+                authSubmitBtn.textContent = 'Log in';
+                loginToggleText.classList.remove('hidden');
+                signupToggleText.classList.add('hidden');
+            });
+            
+            authForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (isSignUp) {
+                    const companyName = companyNameInput.value;
+                    if (companyName) {
+                        sidebarCompanyName.textContent = `Welcome, ${companyName}`;
+                    }
+                }
+                authContainer.classList.add('opacity-0');
+                setTimeout(() => {
+                    authContainer.classList.add('hidden');
+                    appContainer.classList.remove('hidden');
+                }, 300);
+            });
+
+            // --- MAIN APP LOGIC ---
+            initiateCloneBtn.addEventListener('click', handleInitiateClone);
+            audioUpload.addEventListener('change', handleAudioUpload);
+            startCloningBtn.addEventListener('click', handleStartCloning);
+            fileUpload.addEventListener('change', handleFileUpload);
+            createCampaignBtn.addEventListener('click', handleCampaignCreation);
+            navDashboard.addEventListener('click', (e) => showView(e, dashboardView));
+            navCallLogs.addEventListener('click', (e) => showView(e, callLogsView));
+            manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView, false));
+            viewReportsBtn.addEventListener('click', (e) => showView(e, reportsView, false));
+            returnToDashboardBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
+            returnToDashboardFromReportsBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
+            manualContactForm.addEventListener('submit', handleAddContact);
+            openSidebarBtn.addEventListener('click', openSidebar);
+            closeSidebarBtn.addEventListener('click', closeSidebar);
+            sidebarOverlay.addEventListener('click', closeSidebar);
+
+            function openSidebar() {
+                sidebar.classList.remove('-translate-x-full');
+                sidebarOverlay.classList.remove('hidden');
+            }
+
+            function closeSidebar() {
+                sidebar.classList.add('-translate-x-full');
+                sidebarOverlay.classList.add('hidden');
+            }
+
+            function updateNavStyles(activeView) {
+                 const views = {
+                    'dashboardView': navDashboard,
+                    'callLogsView': navCallLogs,
+                    'manualEntryView': navDashboard,
+                    'reportsView': navDashboard
+                };
+
+                // Reset all nav items
+                Object.values(views).forEach(nav => {
+                    if (nav) {
+                        nav.classList.remove('bg-blue-600', 'text-white');
+                        nav.classList.add('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
+                    }
+                });
+
+                // Set active style for main navigation links
+                const activeNav = (activeView.id === 'callLogsView') ? navCallLogs : navDashboard;
+                 if (activeNav) {
+                    activeNav.classList.add('bg-blue-600', 'text-white');
+                    activeNav.classList.remove('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
+                }
+            }
+            
+            function showView(e, viewToShow, isNavLink = true) {
+                if (e) e.preventDefault();
+                dashboardView.classList.add('hidden');
+                callLogsView.classList.add('hidden');
+                manualEntryView.classList.add('hidden');
+                reportsView.classList.add('hidden');
+                viewToShow.classList.remove('hidden');
+                
+                updateNavStyles(viewToShow);
+                closeSidebar();
+            }
+
+            function handleInitiateClone() {
+                cloneInitialState.classList.add('hidden');
+                cloneUploadState.classList.remove('hidden');
+            }
+
+            function handleAudioUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    audioFileName.textContent = file.name;
+                    isAudioFileUploaded = true;
+                    startCloningBtn.disabled = false;
+                } else {
+                    audioFileName.textContent = 'Upload audio file';
+                    isAudioFileUploaded = false;
+                    startCloningBtn.disabled = true;
+                }
+            }
+
+            function handleStartCloning() {
+                startCloningBtnText.textContent = 'Cloning...';
+                startCloningBtnLoader.classList.remove('hidden');
+                startCloningBtn.disabled = true;
+                setTimeout(() => {
+                    isVoiceCloned = true;
+                    cloneUploadState.classList.add('hidden');
+                    voiceStatusText.textContent = 'Status: Cloned';
+                    voiceStatus.classList.add('text-green-700');
+                    voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+                    voiceStatusIcon.classList.remove('text-red-500');
+                    voiceStatusIcon.classList.add('text-green-500');
+                    cloneInitialState.classList.remove('hidden');
+                    initiateCloneBtn.classList.add('hidden');
+                }, 2500);
+            }
+
+            function checkCampaignReady() {
+                const ready = isFileUploaded || manualContacts.length > 0;
+                createCampaignBtn.disabled = !ready;
+
+                if (manualContacts.length > 0) {
+                    campaignReadyText.textContent = `${manualContacts.length} contact(s) added.`;
+                } else if(isFileUploaded) {
+                     campaignReadyText.textContent = `File uploaded. Ready to go.`;
+                } else {
+                    campaignReadyText.textContent = '';
+                }
+            }
+
+            function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    fileNameEl.textContent = file.name;
+                    isFileUploaded = true;
+                } else {
+                    fileNameEl.textContent = 'Upload .xlsx file';
+                    isFileUploaded = false;
+                }
+                checkCampaignReady();
+            }
+            
+            function handleAddContact(e) {
+                e.preventDefault();
+                const name = document.getElementById('contactName').value;
+                const phone = document.getElementById('contactPhone').value;
+                const date = document.getElementById('contactDate').value;
+                const time = document.getElementById('contactTime').value;
+                const reason = document.getElementById('contactReason').value;
+
+                manualContacts.push({ name, phone, date, time, reason });
+                renderManualContacts();
+                checkCampaignReady();
+                manualContactForm.reset();
+            }
+            
+            function renderManualContacts() {
+                manualContactsTableBody.innerHTML = ''; // Clear table
+                if (manualContacts.length === 0) {
+                    manualContactsTableBody.appendChild(noManualContactsRow);
+                } else {
+                    manualContacts.forEach((contact, index) => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.date} at ${contact.time}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button data-index="${index}" class="text-red-600 hover:text-red-900 remove-contact-btn">Remove</button>
+                            </td>
+                        `;
+                        manualContactsTableBody.appendChild(row);
+                    });
+                }
+            }
+
+            manualContactsTableBody.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-contact-btn')) {
+                    const indexToRemove = parseInt(e.target.dataset.index, 10);
+                    manualContacts.splice(indexToRemove, 1);
+                    renderManualContacts();
+                    checkCampaignReady();
+                }
+            });
+
+
+            function handleCampaignCreation() {
+                document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.add('disabled'));
+
+                step3.classList.remove('hidden');
+
+                const contactsToCall = manualContacts.length > 0 ? manualContacts : [ { name: 'Maria Garcia', phone: '(555) 123-4567' }, { name: 'John Smith', phone: '(555) 234-5678' }, { name: 'Li Wei', phone: '(555) 345-6789' }, { name: 'Fatima Al-Fassi', phone: '(555) 456-7890' }, { name: 'David Miller', phone: '(555) 567-8901' }, ];
+                
+                const statuses = [ { text: 'Appointment Confirmed', class: 'green' }, { text: 'Left Voicemail', class: 'yellow' }, { text: 'No Answer', class: 'blue' }, { text: 'Call Failed', class: 'red' }, ];
+                let callIndex = 0;
+                resultsTableBody.innerHTML = '';
+                const callInterval = setInterval(() => {
+                    if (callIndex >= contactsToCall.length) {
+                        clearInterval(callInterval);
+                        return;
+                    }
+                    const contact = contactsToCall[callIndex];
+                    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                    addResultRow(contact, randomStatus);
+                    callIndex++;
+                }, 2000);
+            }
+
+            function addResultRow(contact, status) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                        <span class="status-badge ${status.class}">${status.text}</span>
+                    </td>
+                `;
+                resultsTableBody.appendChild(row);
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
+        });
+    </script>
+</body>
+</html>
