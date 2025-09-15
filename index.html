@@ -704,7 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-  // Upload helper: sends CSV to n8n webhook (NO SECRET)
+// Upload helper: sends CSV to n8n webhook (NO SECRET)
 async function uploadCsvToN8n(file) {
   if (!file) throw new Error("No file provided");
   const fd = new FormData();
@@ -722,6 +722,7 @@ async function uploadCsvToN8n(file) {
   }
   return resp.json().catch(()=>null);
 }
+
 
 
     function handleFileUpload(event) {
@@ -867,6 +868,7 @@ async function uploadCsvToN8n(file) {
 </body>
 
 </html>
+
 
 
 
