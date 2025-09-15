@@ -703,25 +703,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Upload helper: sends CSV to n8n webhook ---
-    async function uploadCsvToN8n(file) {
-        if (!file) throw new Error("No file provided");
-        const fd = new FormData();
-        // n8n expects the file field name "file"
-        fd.append("file", file, file.name);
-        // small secret to verify request in n8n (optional but recommended)
-        fd.append("secret", UPLOAD_SECRET);
-        const resp = await fetch(N8N_WEBHOOK_URL, {
-            method: "POST",
-            body: fd
-        });
-        if (!resp.ok) {
-            const text = await resp.text().catch(()=>null);
-            throw new Error(`Upload failed: ${resp.status} ${text || ''}`);
-        }
-        // try parse json if n8n returns it
-        return resp.json().catch(()=>null);
-    }
+
+  // Upload helper: sends CSV to n8n webhook (NO SECRET)
+async function uploadCsvToN8n(file) {
+  if (!file) throw new Error("No file provided");
+  const fd = new FormData();
+  // n8n expects the file field name "file"
+  fd.append("file", file, file.name);
+
+  const resp = await fetch(N8N_WEBHOOK_URL, {
+    method: "POST",
+    body: fd
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text().catch(()=>null);
+    throw new Error(`Upload failed: ${resp.status} ${text || ''}`);
+  }
+  return resp.json().catch(()=>null);
+}
+
 
     function handleFileUpload(event) {
         const file = event.target.files[0];
@@ -866,6 +867,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 
 </html>
+
 
 
 
