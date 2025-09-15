@@ -647,18 +647,29 @@ document.addEventListener('DOMContentLoaded', () => {
         startCloningBtn.disabled = true;
 
         const form = new FormData();
-        form.append('file', file);
-        form.append('voice_name', file.name.replace(/\.[^/.]+$/, "")); // default name from filename
-        form.append('company_id', 'company_test'); // replace with logged-in company id when ready
-        form.append('consent', 'true');
-        // for one test call, add your test number here
-        form.append('contact_phone', '+919736566591'); // <-- put your verified/test number
-        form.append('contact_name', 'Test User');
+form.append('file', file, file.name);                       // include filename
+form.append('voice_name', file.name.replace(/\.[^/.]+$/, ""));
+form.append('company_id', 'company_test');
+form.append('consent', 'true');
+form.append('contact_phone', '+919736566591');
+form.append('contact_name', 'Test User');
 
-        fetch("https://easydialai.app.n8n.cloud/webhook/clone-and-call-test", { // <-- replace with your n8n Production webhook URL if different
-            method: "POST",
-            body: form
-        })
+fetch("https://easydialai.app.n8n.cloud/webhook/clone-and-call-test", {
+  method: "POST",
+  body: form,
+})
+.then(async res => {
+  const text = await res.text().catch(()=>null);
+  if (!res.ok) throw new Error(`Upload failed: ${res.status} ${text||''}`);
+  // try JSON if n8n responded with JSON
+  try { return JSON.parse(text); } catch(e){ return text; }
+})
+.then(data => console.log('Upload success', data))
+.catch(err => {
+  console.error('Upload error', err);
+  alert('Upload failed: ' + err.message);
+});
+
         .then(res => res.json())
         .then(data => {
             if (data.voice_id) {
@@ -868,6 +879,7 @@ async function uploadCsvToN8n(file) {
 </body>
 
 </html>
+
 
 
 
