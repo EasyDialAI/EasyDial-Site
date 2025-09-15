@@ -455,347 +455,418 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // --- AUTH ELEMENTS ---
-            const authContainer = document.getElementById('authContainer');
-            const appContainer = document.getElementById('appContainer');
-            const authForm = document.getElementById('authForm');
-            const companyNameInput = document.getElementById('companyName');
-            const companyNameField = document.getElementById('companyNameField');
-            const industryField = document.getElementById('industryField');
-            const companySizeField = document.getElementById('companySizeField');
-            const authSubmitBtn = document.getElementById('authSubmitBtn');
-            const switchToSignupBtn = document.getElementById('switchToSignupBtn');
-            const switchToLoginBtn = document.getElementById('switchToLoginBtn');
-            const loginToggleText = document.getElementById('loginToggleText');
-            const signupToggleText = document.getElementById('signupToggleText');
-            
-            // --- APP ELEMENTS ---
-            const sidebarCompanyName = document.getElementById('sidebarCompanyName');
-            const step1 = document.getElementById('step1');
-            const step2 = document.getElementById('step2');
-            const step3 = document.getElementById('step3');
-            const initiateCloneBtn = document.getElementById('initiateCloneBtn');
-            const cloneInitialState = document.getElementById('cloneInitialState');
-            const cloneUploadState = document.getElementById('cloneUploadState');
-            const audioUpload = document.getElementById('audio-upload');
-            const audioFileName = document.getElementById('audioFileName');
-            const startCloningBtn = document.getElementById('startCloningBtn');
-            const startCloningBtnText = document.getElementById('startCloningBtnText');
-            const startCloningBtnLoader = document.getElementById('startCloningBtnLoader');
-            const voiceStatus = document.getElementById('voiceStatus');
-            const voiceStatusIcon = document.getElementById('voiceStatusIcon');
-            const voiceStatusText = document.getElementById('voiceStatusText');
-            const fileUpload = document.getElementById('file-upload');
-            const fileNameEl = document.getElementById('fileName');
-            const createCampaignBtn = document.getElementById('createCampaignBtn');
-            const resultsTableBody = document.querySelector('#resultsTable tbody');
-            const navDashboard = document.getElementById('navDashboard');
-            const navCallLogs = document.getElementById('navCallLogs');
-            const dashboardView = document.getElementById('dashboardView');
-            const callLogsView = document.getElementById('callLogsView');
-            const manualEntryView = document.getElementById('manualEntryView');
-            const reportsView = document.getElementById('reportsView');
-            const openSidebarBtn = document.getElementById('openSidebarBtn');
-            const closeSidebarBtn = document.getElementById('closeSidebarBtn');
-            const sidebar = document.getElementById('sidebar');
-            const sidebarOverlay = document.getElementById('sidebarOverlay');
-            const manualEntryBtn = document.getElementById('manualEntryBtn');
-            const returnToDashboardBtn = document.getElementById('returnToDashboardBtn');
-            const returnToDashboardFromReportsBtn = document.getElementById('returnToDashboardFromReportsBtn');
-            const manualContactForm = document.getElementById('manualContactForm');
-            const manualContactsTableBody = document.getElementById('manualContactsTableBody');
-            const noManualContactsRow = document.getElementById('noManualContactsRow');
-            const campaignReadyText = document.getElementById('campaignReadyText');
-            const viewReportsBtn = document.getElementById('viewReportsBtn');
+document.addEventListener('DOMContentLoaded', () => {
+    // --- CONFIG: set your webhook URL and secret here ---
+    const N8N_WEBHOOK_URL = "https://easydialai.app.n8n.cloud/webhook/upload-csv"; // <-- REPLACE with your n8n webhook URL
+    const UPLOAD_SECRET = "easysecret123"; // <-- REPLACE with a strong secret and configure the same secret check in n8n IF node
 
+    // --- AUTH ELEMENTS ---
+    const authContainer = document.getElementById('authContainer');
+    const appContainer = document.getElementById('appContainer');
+    const authForm = document.getElementById('authForm');
+    const companyNameInput = document.getElementById('companyName');
+    const companyNameField = document.getElementById('companyNameField');
+    const industryField = document.getElementById('industryField');
+    const companySizeField = document.getElementById('companySizeField');
+    const authSubmitBtn = document.getElementById('authSubmitBtn');
+    const switchToSignupBtn = document.getElementById('switchToSignupBtn');
+    const switchToLoginBtn = document.getElementById('switchToLoginBtn');
+    const loginToggleText = document.getElementById('loginToggleText');
+    const signupToggleText = document.getElementById('signupToggleText');
+    
+    // --- APP ELEMENTS ---
+    const sidebarCompanyName = document.getElementById('sidebarCompanyName');
+    const step1 = document.getElementById('step1');
+    const step2 = document.getElementById('step2');
+    const step3 = document.getElementById('step3');
+    const initiateCloneBtn = document.getElementById('initiateCloneBtn');
+    const cloneInitialState = document.getElementById('cloneInitialState');
+    const cloneUploadState = document.getElementById('cloneUploadState');
+    const audioUpload = document.getElementById('audio-upload');
+    const audioFileName = document.getElementById('audioFileName');
+    const startCloningBtn = document.getElementById('startCloningBtn');
+    const startCloningBtnText = document.getElementById('startCloningBtnText');
+    const startCloningBtnLoader = document.getElementById('startCloningBtnLoader');
+    const voiceStatus = document.getElementById('voiceStatus');
+    const voiceStatusIcon = document.getElementById('voiceStatusIcon');
+    const voiceStatusText = document.getElementById('voiceStatusText');
+    const fileUpload = document.getElementById('file-upload');
+    const fileNameEl = document.getElementById('fileName');
+    const createCampaignBtn = document.getElementById('createCampaignBtn');
+    const resultsTableBody = document.querySelector('#resultsTable tbody');
+    const navDashboard = document.getElementById('navDashboard');
+    const navCallLogs = document.getElementById('navCallLogs');
+    const dashboardView = document.getElementById('dashboardView');
+    const callLogsView = document.getElementById('callLogsView');
+    const manualEntryView = document.getElementById('manualEntryView');
+    const reportsView = document.getElementById('reportsView');
+    const openSidebarBtn = document.getElementById('openSidebarBtn');
+    const closeSidebarBtn = document.getElementById('closeSidebarBtn');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const manualEntryBtn = document.getElementById('manualEntryBtn');
+    const returnToDashboardBtn = document.getElementById('returnToDashboardBtn');
+    const returnToDashboardFromReportsBtn = document.getElementById('returnToDashboardFromReportsBtn');
+    const manualContactForm = document.getElementById('manualContactForm');
+    const manualContactsTableBody = document.getElementById('manualContactsTableBody');
+    const noManualContactsRow = document.getElementById('noManualContactsRow');
+    const campaignReadyText = document.getElementById('campaignReadyText');
+    const viewReportsBtn = document.getElementById('viewReportsBtn');
 
-            // --- STATE ---
-            let isVoiceCloned = false;
-            let isFileUploaded = false;
-            let isAudioFileUploaded = false;
-            let manualContacts = [];
+    // --- STATE ---
+    let isVoiceCloned = false;
+    let isFileUploaded = false;
+    let isAudioFileUploaded = false;
+    let manualContacts = [];
 
-            // --- AUTH LOGIC ---
-            let isSignUp = false;
-            switchToSignupBtn.addEventListener('click', () => {
-                isSignUp = true;
-                companyNameField.classList.remove('hidden');
-                industryField.classList.remove('hidden');
-                companySizeField.classList.remove('hidden');
-                authSubmitBtn.textContent = 'Sign up';
-                loginToggleText.classList.add('hidden');
-                signupToggleText.classList.remove('hidden');
-            });
+    // --- AUTH LOGIC ---
+    let isSignUp = false;
+    switchToSignupBtn.addEventListener('click', () => {
+        isSignUp = true;
+        companyNameField.classList.remove('hidden');
+        industryField.classList.remove('hidden');
+        companySizeField.classList.remove('hidden');
+        authSubmitBtn.textContent = 'Sign up';
+        loginToggleText.classList.add('hidden');
+        signupToggleText.classList.remove('hidden');
+    });
 
-            switchToLoginBtn.addEventListener('click', () => {
-                isSignUp = false;
-                companyNameField.classList.add('hidden');
-                industryField.classList.add('hidden');
-                companySizeField.classList.add('hidden');
-                authSubmitBtn.textContent = 'Log in';
-                loginToggleText.classList.remove('hidden');
-                signupToggleText.classList.add('hidden');
-            });
-            
-            authForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                if (isSignUp) {
-                    const companyName = companyNameInput.value;
-                    if (companyName) {
-                        sidebarCompanyName.textContent = `Welcome, ${companyName}`;
-                    }
-                }
-                authContainer.classList.add('opacity-0');
-                setTimeout(() => {
-                    authContainer.classList.add('hidden');
-                    appContainer.classList.remove('hidden');
-                }, 300);
-            });
-
-            // --- MAIN APP LOGIC ---
-            initiateCloneBtn.addEventListener('click', handleInitiateClone);
-            audioUpload.addEventListener('change', handleAudioUpload);
-            startCloningBtn.addEventListener('click', handleStartCloning);
-            fileUpload.addEventListener('change', handleFileUpload);
-            createCampaignBtn.addEventListener('click', handleCampaignCreation);
-            navDashboard.addEventListener('click', (e) => showView(e, dashboardView));
-            navCallLogs.addEventListener('click', (e) => showView(e, callLogsView));
-            manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView, false));
-            viewReportsBtn.addEventListener('click', (e) => showView(e, reportsView, false));
-            returnToDashboardBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
-            returnToDashboardFromReportsBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
-            manualContactForm.addEventListener('submit', handleAddContact);
-            openSidebarBtn.addEventListener('click', openSidebar);
-            closeSidebarBtn.addEventListener('click', closeSidebar);
-            sidebarOverlay.addEventListener('click', closeSidebar);
-
-            function openSidebar() {
-                sidebar.classList.remove('-translate-x-full');
-                sidebarOverlay.classList.remove('hidden');
+    switchToLoginBtn.addEventListener('click', () => {
+        isSignUp = false;
+        companyNameField.classList.add('hidden');
+        industryField.classList.add('hidden');
+        companySizeField.classList.add('hidden');
+        authSubmitBtn.textContent = 'Log in';
+        loginToggleText.classList.remove('hidden');
+        signupToggleText.classList.add('hidden');
+    });
+    
+    authForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (isSignUp) {
+            const companyName = companyNameInput.value;
+            if (companyName) {
+                sidebarCompanyName.textContent = `Welcome, ${companyName}`;
             }
+        }
+        authContainer.classList.add('opacity-0');
+        setTimeout(() => {
+            authContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+        }, 300);
+    });
 
-            function closeSidebar() {
-                sidebar.classList.add('-translate-x-full');
-                sidebarOverlay.classList.add('hidden');
-            }
+    // --- MAIN APP LOGIC ---
+    initiateCloneBtn.addEventListener('click', handleInitiateClone);
+    audioUpload.addEventListener('change', handleAudioUpload);
+    startCloningBtn.addEventListener('click', handleStartCloning);
+    fileUpload.addEventListener('change', handleFileUpload);
+    createCampaignBtn.addEventListener('click', handleCampaignCreation);
+    navDashboard.addEventListener('click', (e) => showView(e, dashboardView));
+    navCallLogs.addEventListener('click', (e) => showView(e, callLogsView));
+    manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView, false));
+    viewReportsBtn.addEventListener('click', (e) => showView(e, reportsView, false));
+    returnToDashboardBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
+    returnToDashboardFromReportsBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
+    manualContactForm.addEventListener('submit', handleAddContact);
+    openSidebarBtn.addEventListener('click', openSidebar);
+    closeSidebarBtn.addEventListener('click', closeSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
 
-            function updateNavStyles(activeView) {
-                 const views = {
-                    'dashboardView': navDashboard,
-                    'callLogsView': navCallLogs,
-                    'manualEntryView': navDashboard,
-                    'reportsView': navDashboard
-                };
-
-                // Reset all nav items
-                Object.values(views).forEach(nav => {
-                    if (nav) {
-                        nav.classList.remove('bg-blue-600', 'text-white');
-                        nav.classList.add('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
-                    }
-                });
-
-                // Set active style for main navigation links
-                const activeNav = (activeView.id === 'callLogsView') ? navCallLogs : navDashboard;
-                 if (activeNav) {
-                    activeNav.classList.add('bg-blue-600', 'text-white');
-                    activeNav.classList.remove('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
-                }
-            }
-            
-            function showView(e, viewToShow, isNavLink = true) {
-                if (e) e.preventDefault();
-                dashboardView.classList.add('hidden');
-                callLogsView.classList.add('hidden');
-                manualEntryView.classList.add('hidden');
-                reportsView.classList.add('hidden');
-                viewToShow.classList.remove('hidden');
-                
-                updateNavStyles(viewToShow);
-                closeSidebar();
-            }
-
-            function handleInitiateClone() {
-                cloneInitialState.classList.add('hidden');
-                cloneUploadState.classList.remove('hidden');
-            }
-
-            function handleAudioUpload(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    audioFileName.textContent = file.name;
-                    isAudioFileUploaded = true;
-                    startCloningBtn.disabled = false;
-                } else {
-                    audioFileName.textContent = 'Upload audio file';
-                    isAudioFileUploaded = false;
-                    startCloningBtn.disabled = true;
-                }
-            }
-
-            function handleStartCloning() {
-    const file = audioUpload.files[0];
-    if (!file) {
-        alert("Please upload an audio file first.");
-        return;
+    function openSidebar() {
+        sidebar.classList.remove('-translate-x-full');
+        sidebarOverlay.classList.remove('hidden');
     }
 
-    startCloningBtnText.textContent = 'Cloning...';
-    startCloningBtnLoader.classList.remove('hidden');
-    startCloningBtn.disabled = true;
+    function closeSidebar() {
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
+    }
 
-    const form = new FormData();
-    form.append('file', file);
-    form.append('voice_name', file.name.replace(/\.[^/.]+$/, "")); // default name from filename
-    form.append('company_id', 'company_test'); // replace with logged-in company id when ready
-    form.append('consent', 'true');
-    // for one test call, add your test number here
-    form.append('contact_phone', '+919736566591'); // <-- put your verified/test number
-    form.append('contact_name', 'Test User');
+    function updateNavStyles(activeView) {
+         const views = {
+            'dashboardView': navDashboard,
+            'callLogsView': navCallLogs,
+            'manualEntryView': navDashboard,
+            'reportsView': navDashboard
+        };
 
-    fetch("https://easydialai.app.n8n.cloud/webhook/clone-and-call-test", { // <-- replace with your n8n Production webhook URL
-        method: "POST",
-        body: form
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.voice_id) {
-            isVoiceCloned = true;
-            cloneUploadState.classList.add('hidden');
-            voiceStatusText.textContent = 'Status: Cloned (ID: ' + data.voice_id + ')';
-            voiceStatus.classList.add('text-green-700');
-            voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />`;
-            voiceStatusIcon.classList.remove('text-red-500');
-            voiceStatusIcon.classList.add('text-green-500');
-            cloneInitialState.classList.remove('hidden');
-            initiateCloneBtn.classList.add('hidden');
-
-            if (data.call_id) {
-                alert("Call started! Call ID: " + data.call_id);
+        // Reset all nav items
+        Object.values(views).forEach(nav => {
+            if (nav) {
+                nav.classList.remove('bg-blue-600', 'text-white');
+                nav.classList.add('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
             }
-        } else {
-            alert("Error: " + (data.message || "Unknown error"));
+        });
+
+        // Set active style for main navigation links
+        const activeNav = (activeView.id === 'callLogsView') ? navCallLogs : navDashboard;
+         if (activeNav) {
+            activeNav.classList.add('bg-blue-600', 'text-white');
+            activeNav.classList.remove('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
         }
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Request failed: " + err.message);
-    })
-    .finally(() => {
-        startCloningBtnText.textContent = 'Start Cloning';
-        startCloningBtnLoader.classList.add('hidden');
-        startCloningBtn.disabled = false;
-    });
-}
+    }
+    
+    function showView(e, viewToShow, isNavLink = true) {
+        if (e) e.preventDefault();
+        dashboardView.classList.add('hidden');
+        callLogsView.classList.add('hidden');
+        manualEntryView.classList.add('hidden');
+        reportsView.classList.add('hidden');
+        viewToShow.classList.remove('hidden');
+        
+        updateNavStyles(viewToShow);
+        closeSidebar();
+    }
 
-            function checkCampaignReady() {
-                const ready = isFileUploaded || manualContacts.length > 0;
-                createCampaignBtn.disabled = !ready;
+    function handleInitiateClone() {
+        cloneInitialState.classList.add('hidden');
+        cloneUploadState.classList.remove('hidden');
+    }
 
-                if (manualContacts.length > 0) {
-                    campaignReadyText.textContent = `${manualContacts.length} contact(s) added.`;
-                } else if(isFileUploaded) {
-                     campaignReadyText.textContent = `File uploaded. Ready to go.`;
-                } else {
-                    campaignReadyText.textContent = '';
+    function handleAudioUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            audioFileName.textContent = file.name;
+            isAudioFileUploaded = true;
+            startCloningBtn.disabled = false;
+        } else {
+            audioFileName.textContent = 'Upload audio file';
+            isAudioFileUploaded = false;
+            startCloningBtn.disabled = true;
+        }
+    }
+
+    function handleStartCloning() {
+        const file = audioUpload.files[0];
+        if (!file) {
+            alert("Please upload an audio file first.");
+            return;
+        }
+
+        startCloningBtnText.textContent = 'Cloning...';
+        startCloningBtnLoader.classList.remove('hidden');
+        startCloningBtn.disabled = true;
+
+        const form = new FormData();
+        form.append('file', file);
+        form.append('voice_name', file.name.replace(/\.[^/.]+$/, "")); // default name from filename
+        form.append('company_id', 'company_test'); // replace with logged-in company id when ready
+        form.append('consent', 'true');
+        // for one test call, add your test number here
+        form.append('contact_phone', '+919736566591'); // <-- put your verified/test number
+        form.append('contact_name', 'Test User');
+
+        fetch("https://easydialai.app.n8n.cloud/webhook/clone-and-call-test", { // <-- replace with your n8n Production webhook URL if different
+            method: "POST",
+            body: form
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.voice_id) {
+                isVoiceCloned = true;
+                cloneUploadState.classList.add('hidden');
+                voiceStatusText.textContent = 'Status: Cloned (ID: ' + data.voice_id + ')';
+                voiceStatus.classList.add('text-green-700');
+                voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+                voiceStatusIcon.classList.remove('text-red-500');
+                voiceStatusIcon.classList.add('text-green-500');
+                cloneInitialState.classList.remove('hidden');
+                initiateCloneBtn.classList.add('hidden');
+
+                if (data.call_id) {
+                    alert("Call started! Call ID: " + data.call_id);
                 }
+            } else {
+                alert("Error: " + (data.message || "Unknown error"));
             }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Request failed: " + err.message);
+        })
+        .finally(() => {
+            startCloningBtnText.textContent = 'Start Cloning';
+            startCloningBtnLoader.classList.add('hidden');
+            startCloningBtn.disabled = false;
+        });
+    }
 
-            function handleFileUpload(event) {
-                const file = event.target.files[0];
-                if (file) {
-                    fileNameEl.textContent = file.name;
-                    isFileUploaded = true;
-                } else {
+    function checkCampaignReady() {
+        const ready = isFileUploaded || manualContacts.length > 0;
+        createCampaignBtn.disabled = !ready;
+
+        if (manualContacts.length > 0) {
+            campaignReadyText.textContent = `${manualContacts.length} contact(s) added.`;
+        } else if(isFileUploaded) {
+             campaignReadyText.textContent = `File uploaded. Ready to go.`;
+        } else {
+            campaignReadyText.textContent = '';
+        }
+    }
+
+    // --- Upload helper: sends CSV to n8n webhook ---
+    async function uploadCsvToN8n(file) {
+        if (!file) throw new Error("No file provided");
+        const fd = new FormData();
+        // n8n expects the file field name "file"
+        fd.append("file", file, file.name);
+        // small secret to verify request in n8n (optional but recommended)
+        fd.append("secret", UPLOAD_SECRET);
+        const resp = await fetch(N8N_WEBHOOK_URL, {
+            method: "POST",
+            body: fd
+        });
+        if (!resp.ok) {
+            const text = await resp.text().catch(()=>null);
+            throw new Error(`Upload failed: ${resp.status} ${text || ''}`);
+        }
+        // try parse json if n8n returns it
+        return resp.json().catch(()=>null);
+    }
+
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // Quick validation for CSV / Excel (you can extend if needed)
+            const name = file.name.toLowerCase();
+            if (!name.endsWith('.csv') && !name.endsWith('.xlsx') && !name.endsWith('.xls')) {
+                if (!confirm("Selected file is not a CSV/XLSX. Continue?")) {
+                    fileUpload.value = "";
                     fileNameEl.textContent = 'Upload .xlsx file';
                     isFileUploaded = false;
-                }
-                checkCampaignReady();
-            }
-            
-            function handleAddContact(e) {
-                e.preventDefault();
-                const name = document.getElementById('contactName').value;
-                const phone = document.getElementById('contactPhone').value;
-                const date = document.getElementById('contactDate').value;
-                const time = document.getElementById('contactTime').value;
-                const reason = document.getElementById('contactReason').value;
-
-                manualContacts.push({ name, phone, date, time, reason });
-                renderManualContacts();
-                checkCampaignReady();
-                manualContactForm.reset();
-            }
-            
-            function renderManualContacts() {
-                manualContactsTableBody.innerHTML = ''; // Clear table
-                if (manualContacts.length === 0) {
-                    manualContactsTableBody.appendChild(noManualContactsRow);
-                } else {
-                    manualContacts.forEach((contact, index) => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.date} at ${contact.time}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <button data-index="${index}" class="text-red-600 hover:text-red-900 remove-contact-btn">Remove</button>
-                            </td>
-                        `;
-                        manualContactsTableBody.appendChild(row);
-                    });
-                }
-            }
-
-            manualContactsTableBody.addEventListener('click', function(e) {
-                if (e.target.classList.contains('remove-contact-btn')) {
-                    const indexToRemove = parseInt(e.target.dataset.index, 10);
-                    manualContacts.splice(indexToRemove, 1);
-                    renderManualContacts();
                     checkCampaignReady();
+                    return;
                 }
-            });
-
-
-            function handleCampaignCreation() {
-                document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.add('disabled'));
-
-                step3.classList.remove('hidden');
-
-                const contactsToCall = manualContacts.length > 0 ? manualContacts : [ { name: 'Maria Garcia', phone: '(555) 123-4567' }, { name: 'John Smith', phone: '(555) 234-5678' }, { name: 'Li Wei', phone: '(555) 345-6789' }, { name: 'Fatima Al-Fassi', phone: '(555) 456-7890' }, { name: 'David Miller', phone: '(555) 567-8901' }, ];
-                
-                const statuses = [ { text: 'Appointment Confirmed', class: 'green' }, { text: 'Left Voicemail', class: 'yellow' }, { text: 'No Answer', class: 'blue' }, { text: 'Call Failed', class: 'red' }, ];
-                let callIndex = 0;
-                resultsTableBody.innerHTML = '';
-                const callInterval = setInterval(() => {
-                    if (callIndex >= contactsToCall.length) {
-                        clearInterval(callInterval);
-                        return;
-                    }
-                    const contact = contactsToCall[callIndex];
-                    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-                    addResultRow(contact, randomStatus);
-                    callIndex++;
-                }, 2000);
             }
+            fileNameEl.textContent = file.name;
+            isFileUploaded = true;
+        } else {
+            fileNameEl.textContent = 'Upload .xlsx file';
+            isFileUploaded = false;
+        }
+        checkCampaignReady();
+    }
 
-            function addResultRow(contact, status) {
+    function handleAddContact(e) {
+        e.preventDefault();
+        const name = document.getElementById('contactName').value;
+        const phone = document.getElementById('contactPhone').value;
+        const date = document.getElementById('contactDate').value;
+        const time = document.getElementById('contactTime').value;
+        const reason = document.getElementById('contactReason').value;
+
+        manualContacts.push({ name, phone, date, time, reason });
+        renderManualContacts();
+        checkCampaignReady();
+        manualContactForm.reset();
+    }
+
+    function renderManualContacts() {
+        manualContactsTableBody.innerHTML = ''; // Clear table
+        if (manualContacts.length === 0) {
+            manualContactsTableBody.appendChild(noManualContactsRow);
+        } else {
+            manualContacts.forEach((contact, index) => {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                        <span class="status-badge ${status.class}">${status.text}</span>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.date} at ${contact.time}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button data-index="${index}" class="text-red-600 hover:text-red-900 remove-contact-btn">Remove</button>
                     </td>
                 `;
-                resultsTableBody.appendChild(row);
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                manualContactsTableBody.appendChild(row);
+            });
+        }
+    }
+
+    manualContactsTableBody.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-contact-btn')) {
+            const indexToRemove = parseInt(e.target.dataset.index, 10);
+            manualContacts.splice(indexToRemove, 1);
+            renderManualContacts();
+            checkCampaignReady();
+        }
+    });
+
+    // --- Campaign creation: uploads CSV to n8n if provided, else uses manual contacts (simulation) ---
+    async function handleCampaignCreation() {
+        // Disable cards visually
+        document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.add('disabled'));
+        step3.classList.remove('hidden');
+
+        // If CSV uploaded, send to n8n webhook and let n8n handle calls
+        if (isFileUploaded && fileUpload.files && fileUpload.files.length > 0) {
+            try {
+                createCampaignBtn.disabled = true;
+                createCampaignBtn.textContent = "Uploading CSV…";
+                const file = fileUpload.files[0];
+                const respJson = await uploadCsvToN8n(file);
+                console.log("n8n upload response:", respJson);
+                addResultRow({ name: "System", phone: "CSV uploaded" }, { text: 'Campaign started', class: 'blue' });
+                createCampaignBtn.textContent = "Campaign Running";
+
+                // Optionally show any response details returned by n8n
+                if (respJson && respJson.workflowExecutionId) {
+                    addResultRow({ name: "n8n", phone: "" }, { text: `Execution: ${respJson.workflowExecutionId}`, class: 'green' });
+                }
+            } catch (err) {
+                console.error(err);
+                alert("CSV upload failed: " + err.message);
+                createCampaignBtn.disabled = false;
+                createCampaignBtn.textContent = "Create Campaign";
+                document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.remove('disabled'));
+                return;
             }
-        });
-    </script>
+            return;
+        }
+
+        // If no CSV, but manual contacts exist -> run UI simulation (existing behavior)
+        if (manualContacts.length > 0) {
+            const contactsToCall = manualContacts;
+            const statuses = [ { text: 'Appointment Confirmed', class: 'green' }, { text: 'Left Voicemail', class: 'yellow' }, { text: 'No Answer', class: 'blue' }, { text: 'Call Failed', class: 'red' } ];
+            let callIndex = 0;
+            resultsTableBody.innerHTML = '';
+            const callInterval = setInterval(() => {
+                if (callIndex >= contactsToCall.length) {
+                    clearInterval(callInterval);
+                    return;
+                }
+                const contact = contactsToCall[callIndex];
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                addResultRow(contact, randomStatus);
+                callIndex++;
+            }, 2000);
+            createCampaignBtn.textContent = "Campaign Running";
+            return;
+        }
+
+        alert("No contacts to run. Upload a CSV or add manual contacts.");
+    }
+
+    function addResultRow(contact, status) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                <span class="status-badge ${status.class}">${status.text}</span>
+            </td>
+        `;
+        resultsTableBody.appendChild(row);
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+
+    // Initial check
+    checkCampaignReady();
+});
+</script>
+
 </body>
 
 </html>
+
 
 
