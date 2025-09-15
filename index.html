@@ -711,7 +711,7 @@ async function uploadCsvToN8n(file) {
   // n8n expects the file field name "file"
   fd.append("file", file, file.name);
 
-  const resp = await fetch(N8N_WEBHOOK_URL, {
+  const resp = await fetch("https://easydialai.app.n8n.cloud/webhook/upload-csv", {
     method: "POST",
     body: fd
   });
@@ -868,6 +868,7 @@ async function uploadCsvToN8n(file) {
 </body>
 
 </html>
+
 
 
 
