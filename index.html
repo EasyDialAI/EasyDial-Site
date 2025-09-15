@@ -635,21 +635,59 @@
             }
 
             function handleStartCloning() {
-                startCloningBtnText.textContent = 'Cloning...';
-                startCloningBtnLoader.classList.remove('hidden');
-                startCloningBtn.disabled = true;
-                setTimeout(() => {
-                    isVoiceCloned = true;
-                    cloneUploadState.classList.add('hidden');
-                    voiceStatusText.textContent = 'Status: Cloned';
-                    voiceStatus.classList.add('text-green-700');
-                    voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />`;
-                    voiceStatusIcon.classList.remove('text-red-500');
-                    voiceStatusIcon.classList.add('text-green-500');
-                    cloneInitialState.classList.remove('hidden');
-                    initiateCloneBtn.classList.add('hidden');
-                }, 2500);
+    const file = audioUpload.files[0];
+    if (!file) {
+        alert("Please upload an audio file first.");
+        return;
+    }
+
+    startCloningBtnText.textContent = 'Cloning...';
+    startCloningBtnLoader.classList.remove('hidden');
+    startCloningBtn.disabled = true;
+
+    const form = new FormData();
+    form.append('file', file);
+    form.append('voice_name', file.name.replace(/\.[^/.]+$/, "")); // default name from filename
+    form.append('company_id', 'company_test'); // replace with logged-in company id when ready
+    form.append('consent', 'true');
+    // for one test call, add your test number here
+    form.append('contact_phone', '+91XXXXXXXXXX'); // <-- put your verified/test number
+    form.append('contact_name', 'Test User');
+
+    fetch("https://YOUR-N8N-INSTANCE/webhook/clone-and-call-test", { // <-- replace with your n8n Production webhook URL
+        method: "POST",
+        body: form
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.voice_id) {
+            isVoiceCloned = true;
+            cloneUploadState.classList.add('hidden');
+            voiceStatusText.textContent = 'Status: Cloned (ID: ' + data.voice_id + ')';
+            voiceStatus.classList.add('text-green-700');
+            voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+            voiceStatusIcon.classList.remove('text-red-500');
+            voiceStatusIcon.classList.add('text-green-500');
+            cloneInitialState.classList.remove('hidden');
+            initiateCloneBtn.classList.add('hidden');
+
+            if (data.call_id) {
+                alert("Call started! Call ID: " + data.call_id);
             }
+        } else {
+            alert("Error: " + (data.message || "Unknown error"));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Request failed: " + err.message);
+    })
+    .finally(() => {
+        startCloningBtnText.textContent = 'Start Cloning';
+        startCloningBtnLoader.classList.add('hidden');
+        startCloningBtn.disabled = false;
+    });
+}
 
             function checkCampaignReady() {
                 const ready = isFileUploaded || manualContacts.length > 0;
@@ -757,4 +795,5 @@
         });
     </script>
 </body>
+
 </html>
