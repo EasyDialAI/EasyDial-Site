@@ -457,6 +457,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIG: set your webhook URL and secret here ---
     const N8N_WEBHOOK_URL = "https://easydialai.app.n8n.cloud/webhook/upload-csv"; // <-- REPLACE with your n8n webhook URL
+    const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact"; // <-- added manual contact webhook
 
     // --- AUTH ELEMENTS ---
     const authContainer = document.getElementById('authContainer');
@@ -690,19 +691,59 @@ document.addEventListener('DOMContentLoaded', () => {
         checkCampaignReady();
     }
 
-    function handleAddContact(e) {
+    // ---------- Replaced/Enhanced handleAddContact: sends to n8n manual-contact webhook ----------
+    async function handleAddContact(e) {
         e.preventDefault();
-        const name = document.getElementById('contactName').value;
-        const phone = document.getElementById('contactPhone').value;
+
+        // gather fields
+        const name = document.getElementById('contactName').value.trim();
+        const phone = document.getElementById('contactPhone').value.trim();
         const date = document.getElementById('contactDate').value;
         const time = document.getElementById('contactTime').value;
-        const reason = document.getElementById('contactReason').value;
+        const reason = document.getElementById('contactReason').value.trim();
 
-        manualContacts.push({ name, phone, date, time, reason });
+        // basic validation (keep it minimal to avoid changing UI logic)
+        if (!name || !phone) {
+            alert("Please provide both name and phone number.");
+            return;
+        }
+
+        const contactObj = { name, phone, date, time, reason };
+
+        // add to local UI state first (keeps current UX immediate)
+        manualContacts.push(contactObj);
         renderManualContacts();
         checkCampaignReady();
         manualContactForm.reset();
+
+        // send to n8n webhook (non-blocking UI)
+        try {
+            const resp = await fetch(N8N_MANUAL_CONTACT_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(contactObj),
+            });
+
+            const text = await resp.text().catch(()=>null);
+            if (!resp.ok) {
+                // if n8n returns non-200, show helpful message
+                console.error("n8n responded with error:", resp.status, text);
+                alert("Failed to send contact to server. Please try again.");
+                return;
+            }
+
+            // try to parse JSON if returned
+            let json = null;
+            try { json = JSON.parse(text); } catch(e) { json = text; }
+            console.log("n8n manual-contact response:", json);
+            // optionally show small confirmation to the user (silent is also fine)
+            // alert("Contact sent to server.");
+        } catch (err) {
+            console.error("Error sending contact to n8n:", err);
+            alert("Network error sending contact. Please try again.");
+        }
     }
+    // ---------- end handleAddContact ----------
 
     function renderManualContacts() {
         manualContactsTableBody.innerHTML = '';
@@ -805,6 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 
 </html>
+
 
 
 
