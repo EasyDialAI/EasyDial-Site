@@ -456,8 +456,8 @@
    <script>
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIG: set your webhook URL and secret here ---
-    
-    const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact"; // <-- added manual contact webhook
+    const N8N_WEBHOOK_URL = "https://easydialai.app.n8n.cloud/webhook/upload-csv"; // CSV webhook (keep if used elsewhere)
+    const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact"; // manual-contact webhook
 
     // --- AUTH ELEMENTS ---
     const authContainer = document.getElementById('authContainer');
@@ -693,52 +693,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---------- Replaced/Enhanced handleAddContact: sends to n8n manual-contact webhook ----------
     async function handleAddContact(e) {
-    e.preventDefault();
-    const name = document.getElementById('contactName').value;
-    const phone = document.getElementById('contactPhone').value;
-    const date = document.getElementById('contactDate').value;
-    const time = document.getElementById('contactTime').value;
-    const reason = document.getElementById('contactReason').value;
+        e.preventDefault();
+        const name = document.getElementById('contactName').value;
+        const phone = document.getElementById('contactPhone').value;
+        const date = document.getElementById('contactDate').value;
+        const time = document.getElementById('contactTime').value;
+        const reason = document.getElementById('contactReason').value;
 
-    // Add locally as before
-    const newContact = { name, phone, date, time, reason };
-    manualContacts.push(newContact);
-    renderManualContacts();
-    checkCampaignReady();
-    manualContactForm.reset();
+        // Add locally as before
+        const newContact = { name, phone, date, time, reason };
+        manualContacts.push(newContact);
+        renderManualContacts();
+        checkCampaignReady();
+        manualContactForm.reset();
 
-    // Send the contact to your n8n webhook (manual-contact)
-    // NOTE: this runs client-side. If you need to keep API secrets private, call n8n from server-side instead.
-    try {
-        const resp = await fetch(N8N_MANUAL_WEBHOOK_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(newContact)
-        });
+        // Send the contact to your n8n webhook (manual-contact)
+        // NOTE: this runs client-side. If you need to keep API secrets private, call n8n from server-side instead.
+        try {
+            const resp = await fetch(N8N_MANUAL_CONTACT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    Name: name,
+                    Phone: phone,
+                    Date: date,
+                    Time: time,
+                    Reason: reason
+                })
+            });
 
-        if (!resp.ok) {
-            const text = await resp.text().catch(()=>null);
-            console.error('n8n manual webhook error:', resp.status, text);
-            // optional: notify the user
-            // alert('Failed to send contact to automation: ' + resp.status);
-            return;
+            if (!resp.ok) {
+                const text = await resp.text().catch(()=>null);
+                console.error('n8n manual webhook error:', resp.status, text);
+                return;
+            }
+
+            const data = await resp.json().catch(()=>null);
+            console.log('Manual contact sent to n8n successfully', data);
+        } catch (err) {
+            console.error('Error sending contact to n8n webhook:', err);
         }
-
-        // n8n may return JSON or plain text
-        const data = await resp.json().catch(()=>null);
-        console.log('Manual contact sent to n8n successfully', data);
-
-        // Optionally show a brief UI confirmation
-        // e.g. small toast in your app — for now we'll log:
-        // console.log('Sent new contact to automation');
-    } catch (err) {
-        console.error('Error sending contact to n8n webhook:', err);
-        // optional: alert('Network error sending contact to automation');
     }
-}
-
     // ---------- end handleAddContact ----------
 
     function renderManualContacts() {
@@ -799,21 +796,51 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (manualContacts.length > 0) {
-            const contactsToCall = manualContacts;
-            const statuses = [ { text: 'Appointment Confirmed', class: 'green' }, { text: 'Left Voicemail', class: 'yellow' }, { text: 'No Answer', class: 'blue' }, { text: 'Call Failed', class: 'red' } ];
-            let callIndex = 0;
-            resultsTableBody.innerHTML = '';
-            const callInterval = setInterval(() => {
-                if (callIndex >= contactsToCall.length) {
-                    clearInterval(callInterval);
-                    return;
+            // Send full batch to n8n manual-contact webhook so the workflow handles the calls
+            try {
+                createCampaignBtn.disabled = true;
+                createCampaignBtn.textContent = "Starting campaign…";
+
+                const payload = {
+                    company_id: 'company_test',
+                    contacts: manualContacts.map(c => ({
+                        Name: c.name,
+                        Phone: c.phone,
+                        Date: c.date,
+                        Time: c.time,
+                        Reason: c.reason
+                    }))
+                };
+
+                const resp = await fetch(N8N_MANUAL_CONTACT_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!resp.ok) {
+                    const text = await resp.text().catch(()=>null);
+                    throw new Error(`n8n manual webhook returned ${resp.status} ${text||''}`);
                 }
-                const contact = contactsToCall[callIndex];
-                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
-                addResultRow(contact, randomStatus);
-                callIndex++;
-            }, 2000);
-            createCampaignBtn.textContent = "Campaign Running";
+
+                const respJson = await resp.json().catch(()=>null);
+                console.log('Batch manual contacts sent to n8n:', respJson);
+
+                addResultRow({ name: "System", phone: "Manual contacts" }, { text: 'Campaign started', class: 'blue' });
+                createCampaignBtn.textContent = "Campaign Running";
+
+                // optional: clear manual contacts after sending
+                // manualContacts = [];
+                // renderManualContacts();
+                // checkCampaignReady();
+
+            } catch (err) {
+                console.error('Failed to start campaign via n8n:', err);
+                alert("Failed to start campaign: " + (err.message || err));
+                createCampaignBtn.disabled = false;
+                createCampaignBtn.textContent = "Create Campaign";
+                document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.remove('disabled'));
+            }
             return;
         }
 
@@ -833,15 +860,18 @@ document.addEventListener('DOMContentLoaded', () => {
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 
+    // Initial check
     checkCampaignReady();
 });
 </script>
 
 
 
+
 </body>
 
 </html>
+
 
 
 
