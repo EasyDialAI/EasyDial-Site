@@ -693,56 +693,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---------- Replaced/Enhanced handleAddContact: sends to n8n manual-contact webhook ----------
     async function handleAddContact(e) {
-        e.preventDefault();
+    e.preventDefault();
+    const name = document.getElementById('contactName').value;
+    const phone = document.getElementById('contactPhone').value;
+    const date = document.getElementById('contactDate').value;
+    const time = document.getElementById('contactTime').value;
+    const reason = document.getElementById('contactReason').value;
 
-        // gather fields
-        const name = document.getElementById('contactName').value.trim();
-        const phone = document.getElementById('contactPhone').value.trim();
-        const date = document.getElementById('contactDate').value;
-        const time = document.getElementById('contactTime').value;
-        const reason = document.getElementById('contactReason').value.trim();
+    // Add locally as before
+    const newContact = { name, phone, date, time, reason };
+    manualContacts.push(newContact);
+    renderManualContacts();
+    checkCampaignReady();
+    manualContactForm.reset();
 
-        // basic validation (keep it minimal to avoid changing UI logic)
-        if (!name || !phone) {
-            alert("Please provide both name and phone number.");
+    // Send the contact to your n8n webhook (manual-contact)
+    // NOTE: this runs client-side. If you need to keep API secrets private, call n8n from server-side instead.
+    try {
+        const resp = await fetch(N8N_MANUAL_WEBHOOK_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newContact)
+        });
+
+        if (!resp.ok) {
+            const text = await resp.text().catch(()=>null);
+            console.error('n8n manual webhook error:', resp.status, text);
+            // optional: notify the user
+            // alert('Failed to send contact to automation: ' + resp.status);
             return;
         }
 
-        const contactObj = { name, phone, date, time, reason };
+        // n8n may return JSON or plain text
+        const data = await resp.json().catch(()=>null);
+        console.log('Manual contact sent to n8n successfully', data);
 
-        // add to local UI state first (keeps current UX immediate)
-        manualContacts.push(contactObj);
-        renderManualContacts();
-        checkCampaignReady();
-        manualContactForm.reset();
-
-        // send to n8n webhook (non-blocking UI)
-        try {
-            const resp = await fetch(N8N_MANUAL_CONTACT_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(contactObj),
-            });
-
-            const text = await resp.text().catch(()=>null);
-            if (!resp.ok) {
-                // if n8n returns non-200, show helpful message
-                console.error("n8n responded with error:", resp.status, text);
-                alert("Failed to send contact to server. Please try again.");
-                return;
-            }
-
-            // try to parse JSON if returned
-            let json = null;
-            try { json = JSON.parse(text); } catch(e) { json = text; }
-            console.log("n8n manual-contact response:", json);
-            // optionally show small confirmation to the user (silent is also fine)
-            // alert("Contact sent to server.");
-        } catch (err) {
-            console.error("Error sending contact to n8n:", err);
-            alert("Network error sending contact. Please try again.");
-        }
+        // Optionally show a brief UI confirmation
+        // e.g. small toast in your app — for now we'll log:
+        // console.log('Sent new contact to automation');
+    } catch (err) {
+        console.error('Error sending contact to n8n webhook:', err);
+        // optional: alert('Network error sending contact to automation');
     }
+}
+
     // ---------- end handleAddContact ----------
 
     function renderManualContacts() {
@@ -846,6 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </body>
 
 </html>
+
 
 
 
