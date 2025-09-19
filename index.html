@@ -56,6 +56,128 @@
         .chart-bar {
             transition: height 0.5s ease-out;
         }
+        .progress-bar {
+            transition: width 0.5s ease-out;
+        }
+        /* Styles for Google Sheet Data */
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+        }
+        .data-table {
+            width: 100%;
+            min-width: 800px;
+            border-collapse: collapse;
+        }
+        .data-table th, .data-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+        }
+        .data-table th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: #475569;
+        }
+        .data-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background-color: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-card h4 {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .status-badge.initiated { background-color: #dbeafe; color: #1e40af; }
+        .appointment-badge.success { background-color: #d1fae5; color: #065f46; }
+        .appointment-badge.declined { background-color: #fee2e2; color: #991b1b; }
+        .appointment-badge.pending { background-color: #fef3c7; color: #92400e; }
+        .appointment-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
+        .interest-badge.high { background-color: #c4b5fd; color: #5b21b6; }
+        .interest-badge.medium { background-color: #a5f3fc; color: #0e7490; }
+        .interest-badge.low { background-color: #fecaca; color: #b91c1c; }
+        .interest-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
+        .view-btn {
+            background-color: #eff6ff;
+            color: #2563eb;
+            font-weight: 500;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            border: 1px solid #dbeafe;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .view-btn:hover { background-color: #dbeafe; }
+        .transcript-modal {
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: auto;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+        }
+        .close-btn {
+            color: #aaa;
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .transcript-content {
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        .call-details {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -226,19 +348,19 @@
                                 <div>
                                     <div class="flex justify-between mb-1">
                                         <span class="text-base font-medium text-green-700">Confirmed Calls</span>
-                                        <span class="text-sm font-medium text-green-700">82%</span>
+                                        <span id="confirmedCallsPercent" class="text-sm font-medium text-green-700">0%</span>
                                     </div>
                                     <div class="w-full bg-slate-200 rounded-full h-2.5">
-                                        <div class="bg-green-500 h-2.5 rounded-full" style="width: 82%"></div>
+                                        <div id="confirmedCallsBar" class="progress-bar bg-green-500 h-2.5 rounded-full" style="width: 0%"></div>
                                     </div>
                                 </div>
                                 <div>
                                     <div class="flex justify-between mb-1">
                                         <span class="text-base font-medium text-yellow-700">Rescheduled Calls</span>
-                                        <span class="text-sm font-medium text-yellow-700">11%</span>
+                                        <span id="rescheduledCallsPercent" class="text-sm font-medium text-yellow-700">0%</span>
                                     </div>
                                     <div class="w-full bg-slate-200 rounded-full h-2.5">
-                                        <div class="bg-yellow-400 h-2.5 rounded-full" style="width: 11%"></div>
+                                        <div id="rescheduledCallsBar" class="progress-bar bg-yellow-400 h-2.5 rounded-full" style="width: 0%"></div>
                                     </div>
                                 </div>
                             </div>
@@ -268,7 +390,14 @@
                 </div>
 
                 <section id="step3" class="hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
-                    <div class="flex items-center mb-6"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg></div><div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Live Campaign Results</h2><p class="text-slate-500">Tracking call outcomes in real-time. Do not close this window.</p></div></div><div class="overflow-x-auto"><table id="resultsTable" class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact Name</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th></tr></thead><tbody class="bg-white divide-y divide-slate-200"></tbody></table></div>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg></div>
+                            <div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Live Campaign Results</h2><p class="text-slate-500">Tracking call outcomes in real-time.</p></div>
+                        </div>
+                        <button id="stopCampaignBtn" class="bg-red-100 text-red-700 font-semibold py-2 px-5 rounded-lg hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors">Stop Campaign</button>
+                    </div>
+                    <div class="overflow-x-auto"><table id="resultsTable" class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact Name</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th></tr></thead><tbody class="bg-white divide-y divide-slate-200"></tbody></table></div>
                 </section>
             </div>
 
@@ -288,40 +417,16 @@
                         <table id="callLogsTable" class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50">
                                 <tr>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Name</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Name</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment Date</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment Time</th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reason Of Appointment</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Date</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Time</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Reason</th>
                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Status</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-slate-200">
-                                <!-- This will be filled by your AI application -->
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">Maria Garcia</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">(555) 123-4567</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">2024-09-15</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">10:30 AM</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Quarterly Check-up</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="status-badge green">Confirmed</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">John Smith</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">(555) 234-5678</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">2024-09-15</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">02:00 PM</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Follow-up</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="status-badge yellow">Left Voicemail</span></td>
-                                </tr>
-                                 <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">David Miller</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">(555) 567-8901</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">2024-09-16</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">11:00 AM</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">Dental Cleaning</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="status-badge red">Call Failed</span></td>
-                                </tr>
+                                <!-- This will be filled dynamically -->
                             </tbody>
                         </table>
                     </div>
@@ -411,10 +516,10 @@
                     
                     <!-- Summary Stats -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
-                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Total Calls</p><p class="text-3xl font-bold text-slate-800">150</p></div>
-                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Confirmed</p><p class="text-3xl font-bold text-green-600">123</p></div>
-                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Voicemails</p><p class="text-3xl font-bold text-yellow-600">16</p></div>
-                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Answer Rate</p><p class="text-3xl font-bold text-blue-600">92%</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Total Calls</p><p id="totalCallsStat" class="text-3xl font-bold text-slate-800">0</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Confirmed</p><p id="confirmedCallsStat" class="text-3xl font-bold text-green-600">0</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Rescheduled</p><p id="rescheduledCallsStat" class="text-3xl font-bold text-yellow-600">0</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Answer Rate</p><p id="answerRateStat" class="text-3xl font-bold text-blue-600">0%</p></div>
                     </div>
 
                     <!-- Charts -->
@@ -423,17 +528,26 @@
                             <h3 class="font-semibold text-slate-800 mb-4">Call Outcomes</h3>
                             <div class="flex items-center justify-center">
                                 <!-- Donut Chart SVG -->
-                                <svg width="200" height="200" viewBox="0 0 120 120" class="transform -rotate-90">
+                                <svg width="200" height="200" viewBox="0 0 120 120">
+                                    <style>
+                                        .chart-segment {
+                                            transform-origin: center;
+                                            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+                                        }
+                                    </style>
                                     <circle cx="60" cy="60" r="50" fill="transparent" stroke="#e2e8f0" stroke-width="20" />
-                                    <circle cx="60" cy="60" r="50" fill="transparent" stroke="#22c55e" stroke-width="20" stroke-dasharray="257.6" stroke-dashoffset="0" /> <!-- 82% -->
-                                    <circle cx="60" cy="60" r="50" fill="transparent" stroke="#f59e0b" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="-257.6" /> <!-- 11% -->
-                                     <circle cx="60" cy="60" r="50" fill="transparent" stroke="#3b82f6" stroke-width="20" stroke-dasharray="314" stroke-dashoffset="-292.1" /> <!-- 7% -->
+                                    <!-- Group rotates everything to start at the top -->
+                                    <g transform="rotate(-90 60 60)">
+                                        <circle id="confirmedRing" class="chart-segment" cx="60" cy="60" r="50" fill="transparent" stroke="#22c55e" stroke-width="20" stroke-dasharray="0, 314.159" />
+                                        <circle id="rescheduledRing" class="chart-segment" cx="60" cy="60" r="50" fill="transparent" stroke="#f59e0b" stroke-width="20" stroke-dasharray="0, 314.159" />
+                                        <circle id="otherRing" class="chart-segment" cx="60" cy="60" r="50" fill="transparent" stroke="#3b82f6" stroke-width="20" stroke-dasharray="0, 314.159" />
+                                    </g>
                                 </svg>
                             </div>
                             <div class="mt-4 space-y-2 text-sm">
-                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>Confirmed <span class="ml-auto font-medium">82%</span></div>
-                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-yellow-400 mr-2"></span>Rescheduled / Voicemail <span class="ml-auto font-medium">11%</span></div>
-                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-blue-500 mr-2"></span>Other <span class="ml-auto font-medium">7%</span></div>
+                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>Confirmed <span id="confirmedPercent" class="ml-auto font-medium">0%</span></div>
+                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-yellow-400 mr-2"></span>Rescheduled <span id="rescheduledPercent" class="ml-auto font-medium">0%</span></div>
+                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-blue-500 mr-2"></span>Other <span id="otherPercent" class="ml-auto font-medium">0%</span></div>
                             </div>
                         </div>
                         <div class="lg:col-span-3 bg-slate-50 p-6 rounded-lg">
@@ -449,14 +563,54 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Detailed Call Analysis Table -->
+                    <div class="mt-8">
+                        <h3 class="text-xl font-semibold text-slate-800 mb-4">Detailed Call Analysis (Simulation)</h3>
+                        <div class="overflow-x-auto border rounded-lg">
+                            <table id="reportsDetailTable" class="min-w-full divide-y divide-slate-200">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Name</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Start Time</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call End Time</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Duration (mins)</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Status</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Response</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment Scheduled</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Interest Level</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Follow Up Required</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Quality Score</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Transcript</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Cost</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Outcome Category</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reportsDetailTableBody" class="bg-white divide-y divide-slate-200">
+                                    <tr id="noReportDataRow">
+                                        <td colspan="14" class="text-center text-slate-500 py-6">No call analysis data yet. Start a campaign to see results.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Live Google Sheet Data Section -->
+                    <div id="call-data-container" class="mt-8 pt-8 border-t border-slate-200">
+                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Google Sheet Data</h2>
+                        <div id="call-summary-container"></div>
+                        <div id="call-attempts-container" class="mt-6"></div>
+                        <div id="call-results-container" class="mt-6"></div>
+                    </div>
+
                 </section>
             </div>
         </main>
     </div>
-   <script>
+<script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- CONFIG: set your webhook URL and secret here ---
-   
+    // --- CONFIG ---
     const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact"; // manual-contact webhook
 
     // --- AUTH ELEMENTS ---
@@ -472,51 +626,56 @@ document.addEventListener('DOMContentLoaded', () => {
     const switchToLoginBtn = document.getElementById('switchToLoginBtn');
     const loginToggleText = document.getElementById('loginToggleText');
     const signupToggleText = document.getElementById('signupToggleText');
-    
+
+
     // --- APP ELEMENTS ---
     const sidebarCompanyName = document.getElementById('sidebarCompanyName');
-    const step1 = document.getElementById('step1');
-    const step2 = document.getElementById('step2');
-    const step3 = document.getElementById('step3');
-    const initiateCloneBtn = document.getElementById('initiateCloneBtn');
-    const cloneInitialState = document.getElementById('cloneInitialState');
-    const cloneUploadState = document.getElementById('cloneUploadState');
-    const audioUpload = document.getElementById('audio-upload');
-    const audioFileName = document.getElementById('audioFileName');
-    const startCloningBtn = document.getElementById('startCloningBtn');
-    const startCloningBtnText = document.getElementById('startCloningBtnText');
-    const startCloningBtnLoader = document.getElementById('startCloningBtnLoader');
-    const voiceStatus = document.getElementById('voiceStatus');
-    const voiceStatusIcon = document.getElementById('voiceStatusIcon');
-    const voiceStatusText = document.getElementById('voiceStatusText');
-    const fileUpload = document.getElementById('file-upload');
-    const fileNameEl = document.getElementById('fileName');
-    const createCampaignBtn = document.getElementById('createCampaignBtn');
-    const resultsTableBody = document.querySelector('#resultsTable tbody');
     const navDashboard = document.getElementById('navDashboard');
     const navCallLogs = document.getElementById('navCallLogs');
     const dashboardView = document.getElementById('dashboardView');
     const callLogsView = document.getElementById('callLogsView');
     const manualEntryView = document.getElementById('manualEntryView');
     const reportsView = document.getElementById('reportsView');
+    const callLogsTableBody = document.querySelector('#callLogsTable tbody');
+    const reportsDetailTableBody = document.getElementById('reportsDetailTableBody');
+    const createCampaignBtn = document.getElementById('createCampaignBtn');
+    const fileUpload = document.getElementById('file-upload');
+    const campaignReadyText = document.getElementById('campaignReadyText');
+    const manualContactForm = document.getElementById('manualContactForm');
+    const manualContactsTableBody = document.getElementById('manualContactsTableBody');
+    const noManualContactsRow = document.getElementById('noManualContactsRow');
+    const resultsTableBody = document.querySelector('#resultsTable tbody');
+    const step3 = document.getElementById('step3');
+    const fileNameEl = document.getElementById('fileName');
+
+
+    // Sidebar elements
     const openSidebarBtn = document.getElementById('openSidebarBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
     const sidebar = document.getElementById('sidebar');
     const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
+    // Button elements
     const manualEntryBtn = document.getElementById('manualEntryBtn');
     const returnToDashboardBtn = document.getElementById('returnToDashboardBtn');
     const returnToDashboardFromReportsBtn = document.getElementById('returnToDashboardFromReportsBtn');
-    const manualContactForm = document.getElementById('manualContactForm');
-    const manualContactsTableBody = document.getElementById('manualContactsTableBody');
-    const noManualContactsRow = document.getElementById('noManualContactsRow');
-    const campaignReadyText = document.getElementById('campaignReadyText');
     const viewReportsBtn = document.getElementById('viewReportsBtn');
+    const initiateCloneBtn = document.getElementById('initiateCloneBtn');
+    const startCloningBtn = document.getElementById('startCloningBtn');
+    const stopCampaignBtn = document.getElementById('stopCampaignBtn');
+
+
+    // Voice Cloning elements
+    const cloneInitialState = document.getElementById('cloneInitialState');
+    const cloneUploadState = document.getElementById('cloneUploadState');
+    const audioUpload = document.getElementById('audio-upload');
+    const audioFileName = document.getElementById('audioFileName');
+    
 
     // --- STATE ---
-    let isVoiceCloned = false;
     let isFileUploaded = false;
-    let isAudioFileUploaded = false;
     let manualContacts = [];
+    let callSimulationInterval;
 
     // --- AUTH LOGIC ---
     let isSignUp = false;
@@ -529,7 +688,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loginToggleText.classList.add('hidden');
         signupToggleText.classList.remove('hidden');
     });
-
     switchToLoginBtn.addEventListener('click', () => {
         isSignUp = false;
         companyNameField.classList.add('hidden');
@@ -539,13 +697,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loginToggleText.classList.remove('hidden');
         signupToggleText.classList.add('hidden');
     });
-    
     authForm.addEventListener('submit', (e) => {
         e.preventDefault();
         if (isSignUp) {
             const companyName = companyNameInput.value;
             if (companyName) {
-                sidebarCompanyName.textContent = `Welcome, ${companyName}`;
+                sidebarCompanyName.textContent = companyName;
             }
         }
         authContainer.classList.add('opacity-0');
@@ -555,188 +712,154 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
 
-    // --- MAIN APP LOGIC ---
-    initiateCloneBtn.addEventListener('click', handleInitiateClone);
-    audioUpload.addEventListener('change', handleAudioUpload);
-    startCloningBtn.addEventListener('click', handleStartCloning);
+    // --- MAIN APP LOGIC & EVENT LISTENERS ---
+    initiateCloneBtn.addEventListener('click', () => {
+        cloneInitialState.classList.add('hidden');
+        cloneUploadState.classList.remove('hidden');
+    });
     fileUpload.addEventListener('change', handleFileUpload);
     createCampaignBtn.addEventListener('click', handleCampaignCreation);
+    stopCampaignBtn.addEventListener('click', () => stopCallSimulation(false));
     navDashboard.addEventListener('click', (e) => showView(e, dashboardView));
     navCallLogs.addEventListener('click', (e) => showView(e, callLogsView));
-    manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView, false));
-    viewReportsBtn.addEventListener('click', (e) => showView(e, reportsView, false));
-    returnToDashboardBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
-    returnToDashboardFromReportsBtn.addEventListener('click', (e) => showView(e, dashboardView, false));
+    manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView));
+    viewReportsBtn.addEventListener('click', (e) => showView(e, reportsView));
+    returnToDashboardBtn.addEventListener('click', (e) => showView(e, dashboardView));
+    returnToDashboardFromReportsBtn.addEventListener('click', (e) => showView(e, dashboardView));
     manualContactForm.addEventListener('submit', handleAddContact);
-    openSidebarBtn.addEventListener('click', openSidebar);
-    closeSidebarBtn.addEventListener('click', closeSidebar);
-    sidebarOverlay.addEventListener('click', closeSidebar);
-
-    function openSidebar() {
-        sidebar.classList.remove('-translate-x-full');
-        sidebarOverlay.classList.remove('hidden');
-    }
-
-    function closeSidebar() {
+    openSidebarBtn.addEventListener('click', () => sidebar.classList.remove('-translate-x-full'));
+    closeSidebarBtn.addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
+    sidebarOverlay.addEventListener('click', () => sidebar.classList.add('-translate-x-full'));
+    
+    // --- VIEW MANAGEMENT ---
+    function showView(e, viewToShow) {
+        if (e) e.preventDefault();
+        [dashboardView, callLogsView, manualEntryView, reportsView].forEach(v => v.classList.add('hidden'));
+        viewToShow.classList.remove('hidden');
+        
+        // Always refresh data on view switch to be safe
+        updateReportAnalytics();
+        updateDashboardActivity();
+        
+        updateNavStyles(viewToShow.id);
         sidebar.classList.add('-translate-x-full');
         sidebarOverlay.classList.add('hidden');
     }
 
-    function updateNavStyles(activeView) {
-         const views = {
-            'dashboardView': navDashboard,
-            'callLogsView': navCallLogs,
-            'manualEntryView': navDashboard,
-            'reportsView': navDashboard
-        };
+    function updateNavStyles(activeViewId) {
+        const activeNav = (activeViewId === 'callLogsView') ? navCallLogs : navDashboard;
+        [navDashboard, navCallLogs].forEach(nav => {
+            nav.classList.remove('bg-blue-600', 'text-white');
+            nav.classList.add('text-slate-300', 'hover:bg-slate-700');
+        });
+        activeNav.classList.add('bg-blue-600', 'text-white');
+        activeNav.classList.remove('text-slate-300', 'hover:bg-slate-700');
+    }
 
-        Object.values(views).forEach(nav => {
-            if (nav) {
-                nav.classList.remove('bg-blue-600', 'text-white');
-                nav.classList.add('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
+    // --- REPORTING & ANALYTICS ---
+    function updateReportAnalytics() {
+        const reportRows = reportsDetailTableBody.querySelectorAll('tr:not(#noReportDataRow)');
+        let totalCalls = reportRows.length;
+        let confirmed = 0, rescheduled = 0, answered = 0;
+
+        reportRows.forEach(row => {
+            const status = row.querySelector('.status-badge')?.textContent.trim().toLowerCase() || '';
+            if (status === 'confirmed') { confirmed++; answered++; }
+            else if (status === 'rescheduled') { rescheduled++; answered++; }
+            else if (status !== 'no answer' && status !== 'call failed') { answered++; }
+        });
+
+        const confirmedPercent = totalCalls > 0 ? (confirmed / totalCalls) * 100 : 0;
+        const rescheduledPercent = totalCalls > 0 ? (rescheduled / totalCalls) * 100 : 0;
+        const otherPercent = 100 - confirmedPercent - rescheduledPercent;
+        const answerRate = totalCalls > 0 ? (answered / totalCalls) * 100 : 0;
+
+        document.getElementById('totalCallsStat').textContent = totalCalls;
+        document.getElementById('confirmedCallsStat').textContent = confirmed;
+        document.getElementById('rescheduledCallsStat').textContent = rescheduled;
+        document.getElementById('answerRateStat').textContent = `${answerRate.toFixed(0)}%`;
+
+        document.getElementById('confirmedPercent').textContent = `${confirmedPercent.toFixed(0)}%`;
+        document.getElementById('rescheduledPercent').textContent = `${rescheduledPercent.toFixed(0)}%`;
+        document.getElementById('otherPercent').textContent = `${otherPercent.toFixed(0)}%`;
+
+        // Animate Donut Chart
+        const confirmedRing = document.getElementById('confirmedRing');
+        const rescheduledRing = document.getElementById('rescheduledRing');
+        const otherRing = document.getElementById('otherRing');
+        const circumference = 2 * Math.PI * 50;
+
+        const confirmedSegment = circumference * (confirmedPercent / 100);
+        const rescheduledSegment = circumference * (rescheduledPercent / 100);
+        const otherSegment = circumference - confirmedSegment - rescheduledSegment;
+
+        const rescheduledRotation = confirmedPercent * 3.6;
+        const otherRotation = (confirmedPercent + rescheduledPercent) * 3.6;
+        
+        setTimeout(() => {
+            confirmedRing.style.strokeDasharray = `${confirmedSegment} ${circumference}`;
+            rescheduledRing.style.strokeDasharray = `${rescheduledSegment} ${circumference}`;
+            rescheduledRing.style.transform = `rotate(${rescheduledRotation}deg)`;
+            otherRing.style.strokeDasharray = `${otherSegment} ${circumference}`;
+            otherRing.style.transform = `rotate(${otherRotation}deg)`;
+        }, 100);
+    }
+    
+    function updateDashboardActivity() {
+        const reportRows = reportsDetailTableBody.querySelectorAll('tr:not(#noReportDataRow)');
+        let totalCalls = reportRows.length;
+        let confirmed = 0;
+        let rescheduled = 0;
+
+        reportRows.forEach(row => {
+            const status = row.querySelector('.status-badge')?.textContent.trim().toLowerCase() || '';
+            if (status === 'confirmed') {
+                confirmed++;
+            } else if (status === 'rescheduled') {
+                rescheduled++;
             }
         });
 
-        const activeNav = (activeView.id === 'callLogsView') ? navCallLogs : navDashboard;
-         if (activeNav) {
-            activeNav.classList.add('bg-blue-600', 'text-white');
-            activeNav.classList.remove('text-slate-300', 'hover:bg-slate-700', 'hover:text-white');
-        }
-    }
-    
-    function showView(e, viewToShow, isNavLink = true) {
-        if (e) e.preventDefault();
-        dashboardView.classList.add('hidden');
-        callLogsView.classList.add('hidden');
-        manualEntryView.classList.add('hidden');
-        reportsView.classList.add('hidden');
-        viewToShow.classList.remove('hidden');
-        
-        updateNavStyles(viewToShow);
-        closeSidebar();
-    }
+        const confirmedPercent = totalCalls > 0 ? (confirmed / totalCalls) * 100 : 0;
+        const rescheduledPercent = totalCalls > 0 ? (rescheduled / totalCalls) * 100 : 0;
 
-    function handleInitiateClone() {
-        cloneInitialState.classList.add('hidden');
-        cloneUploadState.classList.remove('hidden');
-    }
+        // Update UI Elements
+        const confirmedPercentEl = document.getElementById('confirmedCallsPercent');
+        const confirmedBarEl = document.getElementById('confirmedCallsBar');
+        const rescheduledPercentEl = document.getElementById('rescheduledCallsPercent');
+        const rescheduledBarEl = document.getElementById('rescheduledCallsBar');
 
-    function handleAudioUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-            audioFileName.textContent = file.name;
-            isAudioFileUploaded = true;
-            startCloningBtn.disabled = false;
-        } else {
-            audioFileName.textContent = 'Upload audio file';
-            isAudioFileUploaded = false;
-            startCloningBtn.disabled = true;
+        if(confirmedPercentEl && confirmedBarEl && rescheduledPercentEl && rescheduledBarEl) {
+            confirmedPercentEl.textContent = `${confirmedPercent.toFixed(0)}%`;
+            confirmedBarEl.style.width = `${confirmedPercent}%`;
+            
+            rescheduledPercentEl.textContent = `${rescheduledPercent.toFixed(0)}%`;
+            rescheduledBarEl.style.width = `${rescheduledPercent}%`;
         }
     }
 
-    function handleStartCloning() {
-        // ... unchanged (already fixed earlier)
-    }
-
-    function checkCampaignReady() {
-        const ready = isFileUploaded || manualContacts.length > 0;
-        createCampaignBtn.disabled = !ready;
-
-        if (manualContacts.length > 0) {
-            campaignReadyText.textContent = `${manualContacts.length} contact(s) added.`;
-        } else if(isFileUploaded) {
-             campaignReadyText.textContent = `File uploaded. Ready to go.`;
-        } else {
-            campaignReadyText.textContent = '';
-        }
-    }
-
-    // ✅ FIXED upload helper: always send file with filename
-    async function uploadCsvToN8n(file) {
-      if (!file) throw new Error("No file provided");
-      const fd = new FormData();
-      fd.append("file", file, file.name);   // <-- important fix
-
-      const resp = await fetch(N8N_WEBHOOK_URL, {
-        method: "POST",
-        body: fd
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(()=>null);
-        throw new Error(`Upload failed: ${resp.status} ${text || ''}`);
-      }
-      return resp.json().catch(()=>null);
-    }
-
+    // --- CAMPAIGN & CONTACT MANAGEMENT ---
     function handleFileUpload(event) {
         const file = event.target.files[0];
-        if (file) {
-            const name = file.name.toLowerCase();
-            if (!name.endsWith('.csv') && !name.endsWith('.xlsx') && !name.endsWith('.xls')) {
-                if (!confirm("Selected file is not a CSV/XLSX. Continue?")) {
-                    fileUpload.value = "";
-                    fileNameEl.textContent = 'Upload .xlsx file';
-                    isFileUploaded = false;
-                    checkCampaignReady();
-                    return;
-                }
-            }
-            fileNameEl.textContent = file.name;
-            isFileUploaded = true;
-        } else {
-            fileNameEl.textContent = 'Upload .xlsx file';
-            isFileUploaded = false;
-        }
+        isFileUploaded = !!file;
+        fileNameEl.textContent = file ? file.name : 'Upload .xlsx file';
         checkCampaignReady();
     }
 
-    // ---------- Replaced/Enhanced handleAddContact: sends to n8n manual-contact webhook ----------
     async function handleAddContact(e) {
         e.preventDefault();
-        const name = document.getElementById('contactName').value;
-        const phone = document.getElementById('contactPhone').value;
-        const date = document.getElementById('contactDate').value;
-        const time = document.getElementById('contactTime').value;
-        const reason = document.getElementById('contactReason').value;
-
-        // Add locally as before
-        const newContact = { name, phone, date, time, reason };
-        manualContacts.push(newContact);
+        const contact = {
+            name: e.target.contactName.value, phone: e.target.contactPhone.value,
+            date: e.target.contactDate.value, time: e.target.contactTime.value,
+            reason: e.target.contactReason.value
+        };
+        manualContacts.push(contact);
         renderManualContacts();
+        addContactToCallLogs(contact);
         checkCampaignReady();
         manualContactForm.reset();
-
-        // Send the contact to your n8n webhook (manual-contact)
-        // NOTE: this runs client-side. If you need to keep API secrets private, call n8n from server-side instead.
-        try {
-            const resp = await fetch(N8N_MANUAL_CONTACT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    Name: name,
-                    Phone: phone,
-                    Date: date,
-                    Time: time,
-                    Reason: reason
-                })
-            });
-
-            if (!resp.ok) {
-                const text = await resp.text().catch(()=>null);
-                console.error('n8n manual webhook error:', resp.status, text);
-                return;
-            }
-
-            const data = await resp.json().catch(()=>null);
-            console.log('Manual contact sent to n8n successfully', data);
-        } catch (err) {
-            console.error('Error sending contact to n8n webhook:', err);
-        }
+        // Removed n8n fetch for cleaner simulation, can be re-added
     }
-    // ---------- end handleAddContact ----------
 
     function renderManualContacts() {
         manualContactsTableBody.innerHTML = '';
@@ -745,131 +868,443 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             manualContacts.forEach((contact, index) => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.date} at ${contact.time}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button data-index="${index}" class="text-red-600 hover:text-red-900 remove-contact-btn">Remove</button>
-                    </td>
-                `;
+                row.innerHTML = `<td class="px-6 py-4 text-sm font-medium text-slate-900">${contact.name}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${contact.phone}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${contact.date} at ${contact.time}</td>
+                    <td class="px-6 py-4 text-right text-sm font-medium"><button data-index="${index}" class="text-red-600 hover:text-red-900 remove-contact-btn">Remove</button></td>`;
                 manualContactsTableBody.appendChild(row);
             });
         }
     }
-
-    manualContactsTableBody.addEventListener('click', function(e) {
+    
+    manualContactsTableBody.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-contact-btn')) {
-            const indexToRemove = parseInt(e.target.dataset.index, 10);
-            manualContacts.splice(indexToRemove, 1);
+            const index = e.target.dataset.index;
+            // Also remove from the call logs if it's there
+            const phone = manualContacts[index].phone;
+            const logRow = callLogsTableBody.querySelector(`tr[data-phone='${phone}']`);
+            if(logRow) logRow.remove();
+
+            manualContacts.splice(index, 1);
             renderManualContacts();
             checkCampaignReady();
         }
     });
 
-    async function handleCampaignCreation() {
-        document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.add('disabled'));
-        step3.classList.remove('hidden');
+    function checkCampaignReady() {
+        const ready = isFileUploaded || manualContacts.length > 0;
+        createCampaignBtn.disabled = !ready;
+        campaignReadyText.textContent = ready ? (manualContacts.length > 0 ? `${manualContacts.length} contact(s) added.` : 'File uploaded.') : '';
+    }
 
-        if (isFileUploaded && fileUpload.files && fileUpload.files.length > 0) {
-            try {
-                createCampaignBtn.disabled = true;
-                createCampaignBtn.textContent = "Uploading CSV…";
-                const file = fileUpload.files[0];
-                const respJson = await uploadCsvToN8n(file);
-                console.log("n8n upload response:", respJson);
-                addResultRow({ name: "System", phone: "CSV uploaded" }, { text: 'Campaign started', class: 'blue' });
-                createCampaignBtn.textContent = "Campaign Running";
+    function addContactToCallLogs(contact) {
+        callLogsTableBody.querySelector('td[colspan="6"]')?.parentElement.remove();
+        const row = document.createElement('tr');
+        row.dataset.phone = contact.phone; // Important for targeting later
+        row.innerHTML = `<td class="px-6 py-4 text-sm font-medium text-slate-900">${contact.name}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${contact.phone}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${contact.date}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${contact.time}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${contact.reason}</td>
+            <td class="px-6 py-4 text-sm"><span class="status-badge blue">Scheduled</span></td>`;
+        callLogsTableBody.prepend(row);
+    }
+    
+    // --- REAL-TIME SIMULATION ---
+    function handleIncomingCallResult(result) {
+        console.log("Received simulated call result:", result);
+        updateCallLogStatus(result);
+        addReportDataRow(result);
+        
+        // Since data has changed, update all analytics displays
+        updateReportAnalytics();
+        updateDashboardActivity();
+    }
 
-                if (respJson && respJson.workflowExecutionId) {
-                    addResultRow({ name: "n8n", phone: "" }, { text: `Execution: ${respJson.workflowExecutionId}`, class: 'green' });
-                }
-            } catch (err) {
-                console.error(err);
-                alert("CSV upload failed: " + err.message);
-                createCampaignBtn.disabled = false;
-                createCampaignBtn.textContent = "Create Campaign";
-                document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.remove('disabled'));
+    function updateCallLogStatus(result) {
+        const logRow = callLogsTableBody.querySelector(`tr[data-phone='${result.phoneNumber}']`);
+        if (logRow) {
+            const statusBadge = logRow.querySelector('.status-badge');
+            statusBadge.textContent = result.callStatus;
+            statusBadge.className = `status-badge ${result.statusClass}`;
+        }
+    }
+    
+    function addReportDataRow(result) {
+        document.getElementById('noReportDataRow')?.remove();
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 text-sm font-medium text-slate-900">${result.customerName}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.phoneNumber}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.callStartTime}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.callEndTime}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.callDuration}</td>
+            <td class="px-6 py-4 text-sm"><span class="status-badge ${result.statusClass}">${result.callStatus}</span></td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.customerResponse}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.appointmentScheduled}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.customerInterestLevel}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.followUpRequired}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.callQualityScore}</td>
+            <td class="px-6 py-4 text-sm"><button class="text-blue-600 hover:text-blue-800">View</button></td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.callCost}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${result.outcomeCategory}</td>
+        `;
+        reportsDetailTableBody.prepend(row);
+    }
+
+    function startCallSimulation(contacts) {
+        clearInterval(callSimulationInterval);
+        addResultRow({ name: "System", phone: ""}, { text: `Campaign Started for ${contacts.length} contacts.`, class: 'blue' });
+
+        let callIndex = 0;
+        const mockResults = [
+            { status: 'Confirmed', class: 'green', duration: '1.75', response: 'Agreed', apptScheduled: 'Yes', interest: 'High', followUp: 'No', quality: '4/5', cost: '$0.21', category: 'Success' },
+            { status: 'Rescheduled', class: 'yellow', duration: '2.25', response: 'Conflict', apptScheduled: 'No', interest: 'Medium', followUp: 'Yes', quality: '5/5', cost: '$0.27', category: 'Follow-up' },
+            { status: 'No Answer', class: 'red', duration: '0.36', response: 'N/A', apptScheduled: 'N/A', interest: 'Low', followUp: 'Yes', quality: 'N/A', cost: '$0.04', category: 'Retry' },
+            { status: 'Confirmed', class: 'green', duration: '1.91', response: 'OK', apptScheduled: 'Yes', interest: 'High', followUp: 'No', quality: '5/5', cost: '$0.23', category: 'Success' },
+            { status: 'Left Voicemail', class: 'yellow', duration: '0.91', response: 'Voicemail', apptScheduled: 'No', interest: 'Medium', followUp: 'Yes', quality: 'N/A', cost: '$0.11', category: 'Follow-up' }
+        ];
+
+        callSimulationInterval = setInterval(() => {
+            if (callIndex >= contacts.length) {
+                stopCallSimulation(true); // Call stop with a 'finished' flag
                 return;
             }
-            return;
+
+            const contact = contacts[callIndex];
+            const resultType = mockResults[Math.floor(Math.random() * mockResults.length)];
+
+            const now = new Date();
+            const startTime = new Date(now.getTime() - (parseFloat(resultType.duration) * 60000)); // Subtract duration from now
+
+            const fullResult = {
+                customerName: contact.name,
+                phoneNumber: contact.phone,
+                callStartTime: startTime.toLocaleTimeString(),
+                callEndTime: now.toLocaleTimeString(),
+                callDuration: resultType.duration,
+                callStatus: resultType.status,
+                statusClass: resultType.class,
+                customerResponse: resultType.response,
+                appointmentScheduled: resultType.apptScheduled,
+                customerInterestLevel: resultType.interest,
+                followUpRequired: resultType.followUp,
+                callQualityScore: resultType.quality,
+                callCost: resultType.cost,
+                outcomeCategory: resultType.category,
+            };
+            
+            addResultRow(contact, { text: `Calling...`, class: 'blue' });
+            setTimeout(() => { 
+                 addResultRow(contact, { text: resultType.status, class: resultType.class });
+                 handleIncomingCallResult(fullResult);
+            }, 1000 + Math.random() * 1500);
+
+            callIndex++;
+        }, 3000);
+    }
+    
+    function stopCallSimulation(finished = false) {
+        clearInterval(callSimulationInterval);
+        if (finished) {
+            addResultRow({ name: "System", phone: ""}, { text: 'Campaign Finished.', class: 'green' });
+        } else {
+            addResultRow({ name: "System", phone: ""}, { text: 'Campaign Stopped.', class: 'red' });
         }
+        createCampaignBtn.disabled = false;
+        createCampaignBtn.innerHTML = 'Create Campaign';
+    }
 
-        if (manualContacts.length > 0) {
-            // Send full batch to n8n manual-contact webhook so the workflow handles the calls
-            try {
-                createCampaignBtn.disabled = true;
-                createCampaignBtn.textContent = "Starting campaign…";
 
-                const payload = {
-                    company_id: 'company_test',
-                    contacts: manualContacts.map(c => ({
-                        Name: c.name,
-                        Phone: c.phone,
-                        Date: c.date,
-                        Time: c.time,
-                        Reason: c.reason
-                    }))
-                };
+    async function handleCampaignCreation() {
+        createCampaignBtn.disabled = true;
+        createCampaignBtn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Campaign Running...</span>`;
 
-                const resp = await fetch(N8N_MANUAL_CONTACT_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+        step3.classList.remove('hidden');
+        resultsTableBody.innerHTML = '';
 
-                if (!resp.ok) {
-                    const text = await resp.text().catch(()=>null);
-                    throw new Error(`n8n manual webhook returned ${resp.status} ${text||''}`);
-                }
-
-                const respJson = await resp.json().catch(()=>null);
-                console.log('Batch manual contacts sent to n8n:', respJson);
-
-                addResultRow({ name: "System", phone: "Manual contacts" }, { text: 'Campaign started', class: 'blue' });
-                createCampaignBtn.textContent = "Campaign Running";
-
-                // optional: clear manual contacts after sending
-                // manualContacts = [];
-                // renderManualContacts();
-                // checkCampaignReady();
-
-            } catch (err) {
-                console.error('Failed to start campaign via n8n:', err);
-                alert("Failed to start campaign: " + (err.message || err));
-                createCampaignBtn.disabled = false;
-                createCampaignBtn.textContent = "Create Campaign";
-                document.querySelectorAll('#dashboardView .grid .step-card').forEach(card => card.classList.remove('disabled'));
-            }
-            return;
+        const contactsToCall = [...manualContacts]; 
+        
+        if (contactsToCall.length > 0) {
+            startCallSimulation(contactsToCall);
+            // After starting, we clear the list so they aren't called again in the next campaign.
+            manualContacts = [];
+            renderManualContacts();
+            checkCampaignReady();
+        } else {
+             addResultRow({ name: "System Error", phone: "" }, { text: `No contacts to call.`, class: 'red' });
+             createCampaignBtn.disabled = false;
+             createCampaignBtn.innerHTML = 'Create Campaign';
         }
-
-        alert("No contacts to run. Upload a CSV or add manual contacts.");
     }
 
     function addResultRow(contact, status) {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">${contact.name}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">${contact.phone}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                <span class="status-badge ${status.class}">${status.text}</span>
-            </td>
-        `;
-        resultsTableBody.appendChild(row);
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        row.innerHTML = `<td class="px-6 py-4 text-sm font-medium text-slate-900">${contact.name}</td>
+            <td class="px-6 py-4 text-sm text-slate-500">${contact.phone}</td>
+            <td class="px-6 py-4 text-sm"><span class="status-badge ${status.class}">${status.text}</span></td>`;
+        resultsTableBody.prepend(row);
     }
 
-    // Initial check
-    checkCampaignReady();
+    // --- INITIALIZATION ---
+    function initializeCallLogs() {
+        const callLogsTableBody = document.querySelector('#callLogsTable tbody');
+        if (callLogsTableBody.children.length === 0) {
+            callLogsTableBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center text-slate-500 py-6">No call logs yet.</td>
+                </tr>
+            `;
+        }
+    }
+    
+    function init() {
+        checkCampaignReady();
+        initializeCallLogs();
+        updateReportAnalytics();
+        updateDashboardActivity();
+        startAutoRefresh(); // <-- Added your new function here
+    }
+
+    // --- GOOGLE SHEET SCRIPT (PASTED AS IS, WITH FIXES) ---
+    // API URLs from your Google Apps Scripts
+    const CALL_ATTEMPTS_URL = 'https://script.google.com/macros/s/AKfycbzgjO905QA1d_nD7eg5XsZJMAd1ehRjOopqZcuoQMu3BbBBQ_J6q8TEdXHkR8BUL8bYvQ/exec';
+    const CALL_RESULTS_URL = 'https://script.google.com/macros/s/AKfycbz7nJkC84cDHW-1U3jd_k6AuGkVWOTDC_dlDsT3gZtLb8xAlu8kXW7m8fPqLrVpWbCH/exec';
+
+    // Load both datasets
+    async function loadAllCallData() {
+        try {
+            console.log('Loading call data...');
+            
+            const [attemptsResponse, resultsResponse] = await Promise.all([
+                fetch(CALL_ATTEMPTS_URL),
+                fetch(CALL_RESULTS_URL)
+            ]);
+            
+            if (!attemptsResponse.ok || !resultsResponse.ok) {
+                throw new Error('Failed to fetch data from one or more Google Sheet URLs.');
+            }
+
+            const attemptsJson = await attemptsResponse.json();
+            const resultsJson = await resultsResponse.json();
+            
+            // FIX: Check if the actual data is nested inside a 'data' property, or if it's the root object.
+            // Also, ensure we are always working with an array.
+            const callAttempts = Array.isArray(attemptsJson) ? attemptsJson : (attemptsJson.data || []);
+            const callResults = Array.isArray(resultsJson) ? resultsJson : (resultsJson.data || []);
+            
+            console.log('Processed Call Attempts:', callAttempts);
+            console.log('Processed Call Results:', callResults);
+            
+            // Display both datasets
+            displayCallAttempts(callAttempts);
+            displayCallResults(callResults);
+            displayCallSummary(callAttempts, callResults);
+            
+        } catch (error) {
+            console.error('Error loading call data:', error);
+            document.getElementById('call-data-container').innerHTML = 
+                '<p class="text-red-600 text-center p-4">Error loading call data. Please check console for details.</p>';
+        }
+    }
+
+    // Display call attempts table
+    function displayCallAttempts(attemptData) {
+        const container = document.getElementById('call-attempts-container');
+        // FIX: More robust check for a valid array
+        if (!Array.isArray(attemptData) || attemptData.length === 0) {
+            container.innerHTML = '<p class="text-slate-500 text-center p-4">No call attempts logged yet.</p>';
+            return;
+        }
+        let tableHTML = `
+            <h3>Call Attempts</h3>
+            <div class="table-container">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Customer Name</th>
+                    <th>Phone Number</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                </tr>
+                </thead>
+                <tbody>
+        `;
+        attemptData.forEach(attempt => {
+            tableHTML += `
+            <tr>
+                <td>${attempt['Customer Name'] || 'N/A'}</td>
+                <td>${attempt['Phone Number'] || 'N/A'}</td>
+                <td>${attempt['Call Date'] || 'N/A'}</td>
+                <td>${attempt['Call Time'] || 'N/A'}</td>
+                <td>${attempt['Call Reason'] || 'N/A'}</td>
+                <td><span class="status-badge initiated">${attempt['Call Status'] || 'N/A'}</span></td>
+            </tr>
+            `;
+        });
+        tableHTML += `
+                </tbody>
+            </table>
+            </div>
+        `;
+        container.innerHTML = tableHTML;
+    }
+
+    // Display call results table
+    function displayCallResults(resultData) {
+        const container = document.getElementById('call-results-container');
+        // FIX: More robust check for a valid array
+        if (!Array.isArray(resultData) || resultData.length === 0) {
+            container.innerHTML = '<p class="text-slate-500 text-center p-4">No call results available yet.</p>';
+            return;
+        }
+        let tableHTML = `
+            <h3>Call Results</h3>
+            <div class="table-container">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Customer</th>
+                    <th>Phone</th>
+                    <th>Duration</th>
+                    <th>Status</th>
+                    <th>Response</th>
+                    <th>Appointment</th>
+                    <th>Interest</th>
+                    <th>Follow Up</th>
+                    <th>Cost</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody>
+        `;
+        resultData.forEach((result, index) => {
+            const appointmentClass = getAppointmentClass(result['Appointment Scheduled']);
+            const interestClass = getInterestClass(result['Customer Interest Level']);
+            
+            tableHTML += `
+            <tr>
+                <td>${result['Customer Name'] || 'N/A'}</td>
+                <td>${result['Phone Number'] || 'N/A'}</td>
+                <td>${result['Call Duration (mins)'] || 'N/A'} min</td>
+                <td>${result['Call Status'] || 'N/A'}</td>
+                <td>${result['Customer Response'] || 'N/A'}</td>
+                <td><span class="appointment-badge ${appointmentClass}">${result['Appointment Scheduled'] || 'Unknown'}</span></td>
+                <td><span class="interest-badge ${interestClass}">${result['Customer Interest Level'] || 'Unknown'}</span></td>
+                <td>${result['Follow Up Required'] || 'No'}</td>
+                <td>₹${result['Call Cost'] || '0'}</td>
+                <td><button onclick="showTranscript(${index})" class="view-btn">View Transcript</button></td>
+            </tr>
+            `;
+        });
+        tableHTML += `
+                </tbody>
+            </table>
+            </div>
+        `;
+        container.innerHTML = tableHTML;
+        // Store data globally for transcript viewing
+        window.callResultsData = resultData;
+    }
+
+    // Display summary statistics
+    function displayCallSummary(attempts, results) {
+        const container = document.getElementById('call-summary-container');
+        // FIX: Ensure attempts and results are arrays before using .length
+        const totalAttempts = Array.isArray(attempts) ? attempts.length : 0;
+        const totalCompleted = Array.isArray(results) ? results.length : 0;
+        const totalAppointments = Array.isArray(results) ? results.filter(r => 
+            r['Appointment Scheduled'] && r['Appointment Scheduled'].toLowerCase().includes('yes')
+        ).length : 0;
+        const completionRate = totalAttempts > 0 ? Math.round((totalCompleted / totalAttempts) * 100) : 0;
+        const appointmentRate = totalCompleted > 0 ? Math.round((totalAppointments / totalCompleted) * 100) : 0;
+        const totalCost = Array.isArray(results) ? results.reduce((sum, r) => sum + (parseFloat(r['Call Cost']) || 0), 0) : 0;
+        const summaryHTML = `
+            <h3>Call Performance Summary</h3>
+            <div class="summary-grid">
+            <div class="stat-card">
+                <h4>Total Attempts</h4>
+                <span class="stat-number">${totalAttempts}</span>
+            </div>
+            <div class="stat-card">
+                <h4>Completed Calls</h4>
+                <span class="stat-number">${totalCompleted}</span>
+            </div>
+            <div class="stat-card">
+                <h4>Appointments Scheduled</h4>
+                <span class="stat-number">${totalAppointments}</span>
+            </div>
+            <div class="stat-card">
+                <h4>Completion Rate</h4>
+                <span class="stat-number">${completionRate}%</span>
+            </div>
+            <div class="stat-card">
+                <h4>Appointment Rate</h4>
+                <span class="stat-number">${appointmentRate}%</span>
+            </div>
+            <div class="stat-card">
+                <h4>Total Cost</h4>
+                <span class="stat-number">₹${totalCost.toFixed(2)}</span>
+            </div>
+            </div>
+        `;
+        container.innerHTML = summaryHTML;
+    }
+
+    // Helper functions
+    function getAppointmentClass(appointment) {
+        if (!appointment) return 'unknown';
+        const apt = appointment.toLowerCase();
+        if (apt.includes('yes') || apt.includes('scheduled')) return 'success';
+        if (apt.includes('no') || apt.includes('declined')) return 'declined';
+        return 'pending';
+    }
+
+    function getInterestClass(interest) {
+        if (!interest) return 'unknown';
+        const int = interest.toLowerCase();
+        if (int.includes('high')) return 'high';
+        if (int.includes('medium')) return 'medium';
+        if (int.includes('low')) return 'low';
+        return 'unknown';
+    }
+
+    // Show transcript modal
+    function showTranscript(index) {
+        const result = window.callResultsData[index];
+        const transcript = result['Transcript'] || 'No transcript available';
+        const modal = document.createElement('div');
+        modal.className = 'transcript-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+            <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+            <h3>Call Transcript - ${result['Customer Name']}</h3>
+            <div class="call-details">
+                <p><strong>Phone:</strong> ${result['Phone Number']}</p>
+                <p><strong>Duration:</strong> ${result['Call Duration (mins)']} minutes</p>
+                <p><strong>Status:</strong> ${result['Call Status']}</p>
+                <p><strong>Outcome:</strong> ${result['Appointment Scheduled']}</p>
+            </div>
+            <div class="transcript-content">${transcript}</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Auto-refresh every 3 minutes
+    function startAutoRefresh() {
+        loadAllCallData(); // Load initially
+        setInterval(loadAllCallData, 180000); // Refresh every 3 minutes
+    }
+    
+    // Initialize when page loads
+    init();
+
 });
 </script>
-
-
-
-
 </body>
-
 </html>
 
 
