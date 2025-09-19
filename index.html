@@ -608,10 +608,12 @@
             </div>
         </main>
     </div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIG ---
-    const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact"; // manual-contact webhook
+    const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact";
+    const N8N_RETELL_CALLBACK_URL = "https://easydialai.app.n8n.cloud/webhook/retell-callback";
 
     // --- AUTH ELEMENTS ---
     const authContainer = document.getElementById('authContainer');
@@ -626,7 +628,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const switchToLoginBtn = document.getElementById('switchToLoginBtn');
     const loginToggleText = document.getElementById('loginToggleText');
     const signupToggleText = document.getElementById('signupToggleText');
-
 
     // --- APP ELEMENTS ---
     const sidebarCompanyName = document.getElementById('sidebarCompanyName');
@@ -648,7 +649,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const step3 = document.getElementById('step3');
     const fileNameEl = document.getElementById('fileName');
 
-
     // Sidebar elements
     const openSidebarBtn = document.getElementById('openSidebarBtn');
     const closeSidebarBtn = document.getElementById('closeSidebarBtn');
@@ -664,13 +664,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const startCloningBtn = document.getElementById('startCloningBtn');
     const stopCampaignBtn = document.getElementById('stopCampaignBtn');
 
-
     // Voice Cloning elements
     const cloneInitialState = document.getElementById('cloneInitialState');
     const cloneUploadState = document.getElementById('cloneUploadState');
     const audioUpload = document.getElementById('audio-upload');
     const audioFileName = document.getElementById('audioFileName');
-    
 
     // --- STATE ---
     let isFileUploaded = false;
@@ -849,16 +847,45 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleAddContact(e) {
         e.preventDefault();
         const contact = {
-            name: e.target.contactName.value, phone: e.target.contactPhone.value,
-            date: e.target.contactDate.value, time: e.target.contactTime.value,
+            name: e.target.contactName.value,
+            phone: e.target.contactPhone.value,
+            date: e.target.contactDate.value,
+            time: e.target.contactTime.value,
             reason: e.target.contactReason.value
         };
-        manualContacts.push(contact);
-        renderManualContacts();
-        addContactToCallLogs(contact);
-        checkCampaignReady();
-        manualContactForm.reset();
-        // Removed n8n fetch for cleaner simulation, can be re-added
+
+        try {
+            // Send to n8n webhook
+            console.log('Sending contact to n8n:', contact);
+            const response = await fetch(N8N_MANUAL_CONTACT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    Name: contact.name,
+                    Phone: contact.phone,
+                    Date: contact.date,
+                    Time: contact.time,
+                    Reason: contact.reason
+                })
+            });
+
+            if (response.ok) {
+                console.log('Contact sent to n8n successfully');
+                manualContacts.push(contact);
+                renderManualContacts();
+                addContactToCallLogs(contact);
+                checkCampaignReady();
+                manualContactForm.reset();
+            } else {
+                console.error('Failed to send contact to n8n:', response.status);
+                alert('Failed to add contact to n8n workflow');
+            }
+        } catch (error) {
+            console.error('Error sending contact to n8n:', error);
+            alert('Network error sending contact to n8n');
+        }
     }
 
     function renderManualContacts() {
@@ -1015,7 +1042,6 @@ document.addEventListener('DOMContentLoaded', () => {
         createCampaignBtn.innerHTML = 'Create Campaign';
     }
 
-
     async function handleCampaignCreation() {
         createCampaignBtn.disabled = true;
         createCampaignBtn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Campaign Running...</span>`;
@@ -1088,30 +1114,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const attemptsJson = await attemptsResponse.json();
             const resultsJson = await resultsResponse.json();
             
-            // FIX: Check if the actual data is nested inside a 'data' property, or if it's the root object.
-            // Also, ensure we are always working with an array.
             const callAttempts = Array.isArray(attemptsJson) ? attemptsJson : (attemptsJson.data || []);
             const callResults = Array.isArray(resultsJson) ? resultsJson : (resultsJson.data || []);
             
             console.log('Processed Call Attempts:', callAttempts);
             console.log('Processed Call Results:', callResults);
             
-            // Display both datasets
             displayCallAttempts(callAttempts);
             displayCallResults(callResults);
             displayCallSummary(callAttempts, callResults);
             
         } catch (error) {
             console.error('Error loading call data:', error);
-            document.getElementById('call-data-container').innerHTML = 
-                '<p class="text-red-600 text-center p-4">Error loading call data. Please check console for details.</p>';
+            const container = document.getElementById('call-data-container');
+            if (container) {
+                 container.innerHTML = '<p class="text-red-600 text-center p-4">Error loading live data. This may be a temporary network or CORS issue. Please check the console.</p>';
+            }
         }
     }
 
     // Display call attempts table
     function displayCallAttempts(attemptData) {
         const container = document.getElementById('call-attempts-container');
-        // FIX: More robust check for a valid array
+        if (!container) {
+            // FIX: If the container isn't on the page, don't try to update it.
+            // This prevents errors when this code runs while the user is on the dashboard.
+            return;
+        }
         if (!Array.isArray(attemptData) || attemptData.length === 0) {
             container.innerHTML = '<p class="text-slate-500 text-center p-4">No call attempts logged yet.</p>';
             return;
@@ -1155,7 +1184,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display call results table
     function displayCallResults(resultData) {
         const container = document.getElementById('call-results-container');
-        // FIX: More robust check for a valid array
+        if (!container) {
+             // FIX: If the container isn't on the page, don't try to update it.
+            return;
+        }
         if (!Array.isArray(resultData) || resultData.length === 0) {
             container.innerHTML = '<p class="text-slate-500 text-center p-4">No call results available yet.</p>';
             return;
@@ -1205,14 +1237,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         container.innerHTML = tableHTML;
-        // Store data globally for transcript viewing
         window.callResultsData = resultData;
     }
 
     // Display summary statistics
     function displayCallSummary(attempts, results) {
         const container = document.getElementById('call-summary-container');
-        // FIX: Ensure attempts and results are arrays before using .length
+         if (!container) {
+             // FIX: If the container isn't on the page, don't try to update it.
+            return;
+        }
         const totalAttempts = Array.isArray(attempts) ? attempts.length : 0;
         const totalCompleted = Array.isArray(results) ? results.length : 0;
         const totalAppointments = Array.isArray(results) ? results.filter(r => 
@@ -1306,21 +1340,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
