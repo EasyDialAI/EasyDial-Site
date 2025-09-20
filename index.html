@@ -16,7 +16,7 @@
         }
         .step-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-xl */
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
         }
         .step-card.disabled {
             opacity: 0.5;
@@ -46,20 +46,14 @@
         .status-badge.yellow { background-color: #fef3c7; color: #92400e; }
         .status-badge.blue { background-color: #dbeafe; color: #1e40af; }
         .status-badge.red { background-color: #fee2e2; color: #991b1b; }
-        #resultsTable tbody tr, #callLogsTable tbody tr, #manualContactsTable tbody tr {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .chart-bar {
-            transition: height 0.5s ease-out;
-        }
+        .status-badge.initiated { background-color: #dbeafe; color: #1e40af; }
+        .appointment-badge.success { background-color: #d1fae5; color: #065f46; }
+        .appointment-badge.declined { background-color: #fee2e2; color: #991b1b; }
+        .appointment-badge.pending { background-color: #fef3c7; color: #92400e; }
+        .appointment-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
         .progress-bar {
             transition: width 1s ease-out;
         }
-        /* Styles for Google Sheet Data */
         .table-container {
             overflow-x: auto;
             border: 1px solid #e2e8f0;
@@ -84,38 +78,6 @@
         .data-table tbody tr:last-child td {
             border-bottom: none;
         }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-        .stat-card {
-            background-color: #f8fafc;
-            padding: 1rem;
-            border-radius: 0.75rem;
-            text-align: center;
-            border: 1px solid #e2e8f0;
-        }
-        .stat-card h4 {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-bottom: 0.5rem;
-        }
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #1e293b;
-        }
-        .status-badge.initiated { background-color: #dbeafe; color: #1e40af; }
-        .appointment-badge.success { background-color: #d1fae5; color: #065f46; }
-        .appointment-badge.declined { background-color: #fee2e2; color: #991b1b; }
-        .appointment-badge.pending { background-color: #fef3c7; color: #92400e; }
-        .appointment-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
-        .interest-badge.high { background-color: #c4b5fd; color: #5b21b6; }
-        .interest-badge.medium { background-color: #a5f3fc; color: #0e7490; }
-        .interest-badge.low { background-color: #fecaca; color: #b91c1c; }
-        .interest-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
         .view-btn {
             background-color: #eff6ff;
             color: #2563eb;
@@ -178,23 +140,6 @@
             padding-bottom: 1rem;
             border-bottom: 1px solid #e2e8f0;
         }
-        .donut-chart-container {
-            animation: fadeInScale 1s ease-out forwards;
-        }
-        @keyframes fadeInScale {
-            from {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-        .chart-segment {
-            transform-origin: center;
-            transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -217,11 +162,11 @@
                 <div id="companySizeField" class="hidden">
                     <label for="companySize" class="block text-sm font-medium text-slate-700">Company Size</label>
                      <select id="companySize" name="companySize" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                         <option>1-10 employees</option>
-                         <option>11-50 employees</option>
-                         <option>51-200 employees</option>
-                         <option>201-500 employees</option>
-                         <option>500+ employees</option>
+                        <option>1-10 employees</option>
+                        <option>11-50 employees</option>
+                        <option>51-200 employees</option>
+                        <option>201-500 employees</option>
+                        <option>500+ employees</option>
                     </select>
                 </div>
                  <div>
@@ -406,15 +351,25 @@
                     </section>
                 </div>
 
-                <section id="step3" class="hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                <!-- Campaign Status Section - Only shows when campaign is active -->
+                <section id="campaignStatus" class="hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 mb-8">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg></div>
-                            <div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Live Campaign Results</h2><p class="text-slate-500">Tracking call outcomes in real-time.</p></div>
+                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-xl font-semibold text-slate-900">Campaign Active</h2>
+                                <p id="campaignStatusText" class="text-slate-500">Calls in progress - Results will appear in real-time below.</p>
+                            </div>
                         </div>
-                        <button id="stopCampaignBtn" class="bg-red-100 text-red-700 font-semibold py-2 px-5 rounded-lg hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-400 transition-colors">Stop Campaign</button>
+                        <div class="flex items-center space-x-2">
+                            <div class="loader"></div>
+                            <span class="text-sm text-slate-600">Processing...</span>
+                        </div>
                     </div>
-                    <div class="overflow-x-auto"><table id="resultsTable" class="min-w-full divide-y divide-slate-200"><thead class="bg-slate-50"><tr><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Contact Name</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th><th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th></tr></thead><tbody class="bg-white divide-y divide-slate-200"></tbody></table></div>
                 </section>
             </div>
 
@@ -541,7 +496,7 @@
                     
                     <!-- Live Google Sheet Data Section -->
                     <div id="call-data-container" class="mt-8 pt-8 border-t border-slate-200">
-                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Google Sheet Data</h2>
+                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Call Results</h2>
                         <div id="call-results-container" class="mt-6"></div>
                     </div>
 
@@ -554,9 +509,10 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIG ---
     const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact";
-    const N8N_RETELL_CALLBACK_URL = "https://easydialai.app.n8n.cloud/webhook/retell-callback";
+    const CALL_RESULTS_URL = 'https://script.google.com/macros/s/AKfycbz7nJkC84cDHW-1U3jd_k6AuGkVWOTDC_dlDsT3gZtLb8xAlu8kXW7m8fPqLrVpWbCH/exec';
+    const CALL_ATTEMPTS_URL = 'https://script.google.com/macros/s/AKfycbzgjO905QA1d_nD7eg5XsZJMAd1ehRjOopqZcuoQMu3BbBBQ_J6q8TEdXHkR8BUL8bYvQ/exec';
 
-    // --- AUTH ELEMENTS ---
+    // --- ELEMENTS ---
     const authContainer = document.getElementById('authContainer');
     const appContainer = document.getElementById('appContainer');
     const authForm = document.getElementById('authForm');
@@ -569,8 +525,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const switchToLoginBtn = document.getElementById('switchToLoginBtn');
     const loginToggleText = document.getElementById('loginToggleText');
     const signupToggleText = document.getElementById('signupToggleText');
-
-    // --- APP ELEMENTS ---
     const sidebarCompanyName = document.getElementById('sidebarCompanyName');
     const navDashboard = document.getElementById('navDashboard');
     const navCallLogs = document.getElementById('navCallLogs');
@@ -585,9 +539,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualContactForm = document.getElementById('manualContactForm');
     const manualContactsTableBody = document.getElementById('manualContactsTableBody');
     const noManualContactsRow = document.getElementById('noManualContactsRow');
-    const resultsTableBody = document.querySelector('#resultsTable tbody');
-    const step3 = document.getElementById('step3');
     const fileNameEl = document.getElementById('fileName');
+    const campaignStatus = document.getElementById('campaignStatus');
+    const campaignStatusText = document.getElementById('campaignStatusText');
 
     // Sidebar elements
     const openSidebarBtn = document.getElementById('openSidebarBtn');
@@ -602,7 +556,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewReportsBtn = document.getElementById('viewReportsBtn');
     const initiateCloneBtn = document.getElementById('initiateCloneBtn');
     const startCloningBtn = document.getElementById('startCloningBtn');
-    const stopCampaignBtn = document.getElementById('stopCampaignBtn');
 
     // Voice Cloning elements
     const cloneInitialState = document.getElementById('cloneInitialState');
@@ -613,10 +566,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- STATE ---
     let isFileUploaded = false;
     let manualContacts = [];
-    let callSimulationInterval;
-    let lastAttemptsData = [];
-    let lastResultsData = [];
-
+    let lastCallResults = [];
+    let lastCallAttempts = [];
+    let campaignActive = false;
 
     // --- AUTH LOGIC ---
     let isSignUp = false;
@@ -653,14 +605,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     });
 
-    // --- MAIN APP LOGIC & EVENT LISTENERS ---
+    // --- EVENT LISTENERS ---
     initiateCloneBtn.addEventListener('click', () => {
         cloneInitialState.classList.add('hidden');
         cloneUploadState.classList.remove('hidden');
     });
     fileUpload.addEventListener('change', handleFileUpload);
     createCampaignBtn.addEventListener('click', handleCampaignCreation);
-    stopCampaignBtn.addEventListener('click', () => stopCallSimulation(false));
     navDashboard.addEventListener('click', (e) => showView(e, dashboardView));
     navCallLogs.addEventListener('click', (e) => showView(e, callLogsView));
     manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView));
@@ -678,13 +629,16 @@ document.addEventListener('DOMContentLoaded', () => {
         [dashboardView, callLogsView, manualEntryView, reportsView].forEach(v => v.classList.add('hidden'));
         viewToShow.classList.remove('hidden');
         
-        // Refresh data using cached data when switching views
+        // Update data when switching views
         if (viewToShow === reportsView) {
-             updateReportHeaderStats(lastAttemptsData, lastResultsData);
+            updateReportHeaderStats(lastCallAttempts, lastCallResults);
         }
         if (viewToShow === dashboardView) {
-            updateDashboardActivity(lastResultsData);
+            updateDashboardActivity(lastCallResults);
         }
+        updateNavStyles(viewToShow.id);
+        sidebar.classList.add('-translate-x-full');
+        sidebarOverlay.classList.add('hidden');
     }
 
     function updateNavStyles(activeViewId) {
@@ -697,7 +651,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeNav.classList.remove('text-slate-300', 'hover:bg-slate-700');
     }
 
-    // --- REPORTING & ANALYTICS ---
+    // --- ANALYTICS ---
     function updateReportHeaderStats(attempts, results) {
         if (!Array.isArray(attempts) || !Array.isArray(results)) return;
 
@@ -738,45 +692,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const rescheduledBarEl = document.getElementById('rescheduledCallsBar');
 
         if(confirmedPercentEl && confirmedBarEl && rescheduledPercentEl && rescheduledBarEl) {
-            // Reset styles for animation trigger
             confirmedBarEl.style.width = `0%`;
             rescheduledBarEl.style.width = `0%`;
-            confirmedPercentEl.textContent = `0%`;
-            rescheduledPercentEl.textContent = `0%`;
-
-            // Animate to target values
+            
             setTimeout(() => {
                 confirmedBarEl.style.width = `${confirmedPercent}%`;
                 rescheduledBarEl.style.width = `${rescheduledPercent}%`;
-                animateCounter(confirmedPercentEl, confirmedPercent);
-                animateCounter(rescheduledPercentEl, rescheduledPercent);
-            }, 100); // Small delay to allow browser to render the 0% state
+                confirmedPercentEl.textContent = `${confirmedPercent.toFixed(0)}%`;
+                rescheduledPercentEl.textContent = `${rescheduledPercent.toFixed(0)}%`;
+            }, 100);
         }
     }
 
-    function animateCounter(element, target) {
-        let current = 0;
-        const targetValue = Math.round(target);
-        if (targetValue === 0) {
-            element.textContent = '0%';
-            return;
-        }
-        const increment = targetValue / 50; // Animate over 50 steps
-        const duration = 1000;
-        const stepTime = duration / 50;
-
-        const timer = setInterval(() => {
-            current += increment;
-            if (current >= targetValue) {
-                clearInterval(timer);
-                element.textContent = `${targetValue}%`;
-            } else {
-                element.textContent = `${Math.round(current)}%`;
-            }
-        }, stepTime);
-    }
-
-    // --- CAMPAIGN & CONTACT MANAGEMENT ---
+    // --- CONTACT MANAGEMENT ---
     function handleFileUpload(event) {
         const file = event.target.files[0];
         isFileUploaded = !!file;
@@ -795,7 +723,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         try {
-            // Send to n8n webhook
             console.log('Sending contact to n8n:', contact);
             const response = await fetch(N8N_MANUAL_CONTACT_URL, {
                 method: 'POST',
@@ -820,11 +747,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 manualContactForm.reset();
             } else {
                 console.error('Failed to send contact to n8n:', response.status);
-                // Not using alert()
             }
         } catch (error) {
             console.error('Error sending contact to n8n:', error);
-            // Not using alert()
         }
     }
 
@@ -847,7 +772,6 @@ document.addEventListener('DOMContentLoaded', () => {
     manualContactsTableBody.addEventListener('click', (e) => {
         if (e.target.classList.contains('remove-contact-btn')) {
             const index = e.target.dataset.index;
-            // Also remove from the call logs if it's there
             const phone = manualContacts[index].phone;
             const logRow = callLogsTableBody.querySelector(`tr[data-phone='${phone}']`);
             if(logRow) logRow.remove();
@@ -860,14 +784,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function checkCampaignReady() {
         const ready = isFileUploaded || manualContacts.length > 0;
-        createCampaignBtn.disabled = !ready;
+        createCampaignBtn.disabled = !ready || campaignActive;
         campaignReadyText.textContent = ready ? (manualContacts.length > 0 ? `${manualContacts.length} contact(s) added.` : 'File uploaded.') : '';
     }
 
     function addContactToCallLogs(contact) {
         callLogsTableBody.querySelector('td[colspan="6"]')?.parentElement.remove();
         const row = document.createElement('tr');
-        row.dataset.phone = contact.phone; // Important for targeting later
+        row.dataset.phone = contact.phone;
         row.innerHTML = `<td class="px-6 py-4 text-sm font-medium text-slate-900">${contact.name}</td>
             <td class="px-6 py-4 text-sm text-slate-500">${contact.phone}</td>
             <td class="px-6 py-4 text-sm text-slate-500">${contact.date}</td>
@@ -876,137 +800,44 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="px-6 py-4 text-sm"><span class="status-badge blue">Scheduled</span></td>`;
         callLogsTableBody.prepend(row);
     }
-    
-    // --- REAL-TIME SIMULATION ---
-    function handleIncomingCallResult(result) {
-        console.log("Received simulated call result:", result);
-        updateCallLogStatus(result);
-        
-        // Add simulated result to our cached live data and re-render
-        lastResultsData.unshift(result); // Add to the beginning of the array
-        lastAttemptsData = lastAttemptsData.filter(attempt => attempt['Phone Number'] !== result['Phone Number']);
-        
-        // Re-render all data displays
-        displayCallLogs(lastAttemptsData);
-        displayCallResults(lastResultsData);
-        updateDashboardActivity(lastResultsData);
-        updateReportHeaderStats(lastAttemptsData, lastResultsData);
-    }
 
-    function updateCallLogStatus(result) {
-        const logRow = callLogsTableBody.querySelector(`tr[data-phone='${result['Phone Number']}']`);
-        if (logRow) {
-            const statusBadge = logRow.querySelector('.status-badge');
-            statusBadge.textContent = result['Call Status'];
-            statusBadge.className = `status-badge ${result.statusClass}`;
-        }
-    }
-
-    function startCallSimulation(contacts) {
-        clearInterval(callSimulationInterval);
-        addResultRow({ name: "System", phone: ""}, { text: `Campaign Started for ${contacts.length} contacts.`, class: 'blue' });
-
-        let callIndex = 0;
-        const mockResults = [
-            { status: 'Confirmed', class: 'green', duration: '1.75', apptScheduled: 'Yes', followUp: 'No', cost: '0.21', recordingUrl: 'https://example.com/rec/123.mp3' },
-            { status: 'Rescheduled', class: 'yellow', duration: '2.25', apptScheduled: 'No', followUp: 'Yes', cost: '0.27', recordingUrl: 'https://example.com/rec/124.mp3' },
-            { status: 'No Answer', class: 'red', duration: '0.36', apptScheduled: 'N/A', followUp: 'Yes', cost: '0.04', recordingUrl: null },
-            { status: 'Confirmed', class: 'green', duration: '1.91', apptScheduled: 'Yes', followUp: 'No', cost: '0.23', recordingUrl: 'https://example.com/rec/125.mp3' },
-            { status: 'Left Voicemail', class: 'yellow', duration: '0.91', apptScheduled: 'No', followUp: 'Yes', cost: '0.11', recordingUrl: 'https://example.com/rec/126.mp3' }
-        ];
-
-        callSimulationInterval = setInterval(() => {
-            if (callIndex >= contacts.length) {
-                stopCallSimulation(true); // Call stop with a 'finished' flag
-                return;
-            }
-
-            const contact = contacts[callIndex];
-            const resultType = mockResults[Math.floor(Math.random() * mockResults.length)];
-
-            const now = new Date();
-            const startTime = new Date(now.getTime() - (parseFloat(resultType.duration) * 60000)); // Subtract duration from now
-
-            const fullResult = {
-                'Customer Name': contact.name,
-                'Phone Number': contact.phone,
-                'Call Start Time': startTime.toLocaleTimeString(),
-                'Call End Time': now.toLocaleTimeString(),
-                'Call Duration (mins)': resultType.duration,
-                'Call Status': resultType.status,
-                statusClass: resultType.class, // For local styling
-                'Appointment Scheduled': resultType.apptScheduled,
-                'Follow Up Required': resultType.followUp,
-                'Call Cost': resultType.cost,
-                'Disconnect Reason': 'Call completed normally.',
-                'call_summary': `The call was marked as ${resultType.status}.`,
-                'Transcript': `This is a simulated transcript for ${contact.name}. The call outcome was: ${resultType.status}.`,
-                'Recording URL': resultType.recordingUrl
-            };
-            
-            addResultRow(contact, { text: `Calling...`, class: 'blue' });
-            setTimeout(() => { 
-                 addResultRow(contact, { text: resultType.status, class: resultType.class });
-                 handleIncomingCallResult(fullResult);
-            }, 1000 + Math.random() * 1500);
-
-            callIndex++;
-        }, 3000);
-    }
-    
-    function stopCallSimulation(finished = false) {
-        clearInterval(callSimulationInterval);
-        if (finished) {
-            addResultRow({ name: "System", phone: ""}, { text: 'Campaign Finished.', class: 'green' });
-        } else {
-            addResultRow({ name: "System", phone: ""}, { text: 'Campaign Stopped.', class: 'red' });
-        }
-        createCampaignBtn.disabled = false;
-        createCampaignBtn.innerHTML = 'Create Campaign';
-    }
-
+    // --- CAMPAIGN MANAGEMENT ---
     async function handleCampaignCreation() {
+        campaignActive = true;
         createCampaignBtn.disabled = true;
-        createCampaignBtn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Campaign Running...</span>`;
+        createCampaignBtn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Starting Campaign...</span>`;
 
-        step3.classList.remove('hidden');
-        resultsTableBody.innerHTML = '';
+        // Show campaign status
+        campaignStatus.classList.remove('hidden');
+        campaignStatusText.textContent = `Campaign started - calling ${manualContacts.length} contacts. Results will appear shortly...`;
 
         const contactsToCall = [...manualContacts]; 
         
         if (contactsToCall.length > 0) {
-            startCallSimulation(contactsToCall);
-            // After starting, we clear the list so they aren't called again in the next campaign.
+            // Clear contacts after starting campaign
             manualContacts = [];
             renderManualContacts();
             checkCampaignReady();
+            
+            // Set campaign complete after reasonable time
+            setTimeout(() => {
+                campaignActive = false;
+                createCampaignBtn.innerHTML = 'Create Campaign';
+                campaignStatus.classList.add('hidden');
+                checkCampaignReady();
+                // Trigger data refresh to show results
+                loadAllCallData();
+            }, 10000); // 10 seconds - adjust based on your needs
+            
         } else {
-             addResultRow({ name: "System Error", phone: "" }, { text: `No contacts to call.`, class: 'red' });
-             createCampaignBtn.disabled = false;
-             createCampaignBtn.innerHTML = 'Create Campaign';
+            campaignActive = false;
+            createCampaignBtn.disabled = false;
+            createCampaignBtn.innerHTML = 'Create Campaign';
+            campaignStatus.classList.add('hidden');
         }
     }
 
-    function addResultRow(contact, status) {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td class="px-6 py-4 text-sm font-medium text-slate-900">${contact.name}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${contact.phone}</td>
-            <td class="px-6 py-4 text-sm"><span class="status-badge ${status.class}">${status.text}</span></td>`;
-        resultsTableBody.prepend(row);
-    }
-
-    // --- INITIALIZATION ---
-    function init() {
-        checkCampaignReady();
-        startAutoRefresh();
-    }
-
-    // --- GOOGLE SHEET SCRIPT ---
-    // API URLs from your Google Apps Scripts
-    const CALL_ATTEMPTS_URL = 'https://script.google.com/macros/s/AKfycbzgjO905QA1d_nD7eg5XsZJMAd1ehRjOopqZcuoQMu3BbBBQ_J6q8TEdXHkR8BUL8bYvQ/exec';
-    const CALL_RESULTS_URL = 'https://script.google.com/macros/s/AKfycbz7nJkC84cDHW-1U3jd_k6AuGkVWOTDC_dlDsT3gZtLb8xAlu8kXW7m8fPqLrVpWbCH/exec';
-
-    // Load both datasets
+    // --- DATA LOADING ---
     async function loadAllCallData() {
         console.log('Loading call data...');
         const fetchOptions = { cache: 'no-cache', mode: 'cors' };
@@ -1018,42 +849,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let callAttempts = [];
         let callResults = [];
-        let hasError = false;
 
         if (attemptsResult.status === 'fulfilled' && attemptsResult.value.ok) {
             const attemptsJson = await attemptsResult.value.json();
             callAttempts = Array.isArray(attemptsJson) ? attemptsJson : (attemptsJson.data || []);
-        } else {
-            hasError = true;
-            const status = attemptsResult.value ? attemptsResult.value.status : 'N/A';
-            console.error('Failed to fetch call attempts:', attemptsResult.reason || `Status: ${status}`);
         }
 
         if (resultsResult.status === 'fulfilled' && resultsResult.value.ok) {
             const resultsJson = await resultsResult.value.json();
             callResults = Array.isArray(resultsJson) ? resultsJson : (resultsJson.data || []);
-        } else {
-            hasError = true;
-            const status = resultsResult.value ? resultsResult.value.status : 'N/A';
-            console.error('Failed to fetch call results:', resultsResult.reason || `Status: ${status}`);
-        }
-
-        if (hasError) {
-            const container = document.getElementById('call-data-container');
-            if (container) {
-                 container.innerHTML = `<div class="text-red-600 text-center p-4">
-                    <p class="font-bold">Error loading live data.</p>
-                    <p class="text-sm mt-1">One or more data sources could not be reached. This could be a temporary network issue or a problem with the data source configuration (e.g., CORS or permissions). Please check the console for details.</p>
-                 </div>`;
-            }
         }
         
-        // Cache the data regardless of errors, so we don't lose partial data
-        lastAttemptsData = callAttempts;
-        lastResultsData = callResults;
+        // Cache the data
+        lastCallAttempts = callAttempts;
+        lastCallResults = callResults;
 
-        console.log('Processed Call Logs:', callAttempts);
-        console.log('Processed Call Results:', callResults);
+        console.log('Loaded Call Attempts:', callAttempts);
+        console.log('Loaded Call Results:', callResults);
         
         displayCallLogs(callAttempts);
         displayCallResults(callResults);
@@ -1061,12 +873,11 @@ document.addEventListener('DOMContentLoaded', () => {
         updateReportHeaderStats(callAttempts, callResults);
     }
 
-    // This function now populates the main Call Logs page
     function displayCallLogs(logData) {
         const container = document.querySelector('#callLogsTable tbody');
         if (!container) return;
 
-        container.innerHTML = ''; // Clear existing logs
+        container.innerHTML = '';
 
         if (!Array.isArray(logData) || logData.length === 0) {
             container.innerHTML = `
@@ -1084,37 +895,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="px-6 py-4 text-sm text-slate-500">${log['Call Date'] || 'N/A'}</td>
                 <td class="px-6 py-4 text-sm text-slate-500">${log['Call Time'] || 'N/A'}</td>
                 <td class="px-6 py-4 text-sm text-slate-500">${log['Call Reason'] || 'N/A'}</td>
-                <td class="px-6 py-4 text-sm"><span class="status-badge blue">${log['Call Status'] || 'N/A'}</span></td>`;
+                <td class="px-6 py-4 text-sm"><span class="status-badge initiated">${log['Call Status'] || 'N/A'}</span></td>`;
             container.appendChild(row);
         });
     }
 
-    // Display call results table
     function displayCallResults(resultData) {
         const container = document.getElementById('call-results-container');
         if (!container) return;
         if (!Array.isArray(resultData) || resultData.length === 0) {
-            container.innerHTML = '<p class="text-slate-500 text-center p-4">No call results available yet.</p>';
+            container.innerHTML = '<p class="text-slate-500 text-center p-4">No call results available yet. Start a campaign to see results here.</p>';
             return;
         }
         let tableHTML = `
-            <h3>Call Results</h3>
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Call Results</h3>
             <div class="table-container">
             <table class="data-table">
                 <thead>
                 <tr>
                     <th>Customer</th>
                     <th>Phone</th>
-                    <th>Call Start Time</th>
-                    <th>Call End Time</th>
-                    <th>Duration</th>
+                    <th>Duration (mins)</th>
                     <th>Status</th>
                     <th>Appointment</th>
-                    <th>Follow Up</th>
                     <th>Cost</th>
-                    <th>Disconnect Reason</th>
-                    <th>Recording URL</th>
-                    <th>Call Summary</th>
+                    <th>Summary</th>
+                    <th>Recording</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
@@ -1127,17 +933,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr>
                 <td>${result['Customer Name'] || 'N/A'}</td>
                 <td>${result['Phone Number'] || 'N/A'}</td>
-                <td>${result['Call Start Time'] || 'N/A'}</td>
-                <td>${result['Call End Time'] || 'N/A'}</td>
-                <td>${result['Call Duration (mins)'] || 'N/A'} min</td>
-                <td>${result['Call Status'] || 'N/A'}</td>
+                <td>${result['Call Duration (mins)'] || 'N/A'}</td>
+                <td><span class="status-badge ${getStatusClass(result['Call Status'])}">${result['Call Status'] || 'N/A'}</span></td>
                 <td><span class="appointment-badge ${appointmentClass}">${result['Appointment Scheduled'] || 'Unknown'}</span></td>
-                <td>${result['Follow Up Required'] || 'No'}</td>
                 <td>₹${result['Call Cost'] || '0'}</td>
-                <td>${result['Disconnect Reason'] || 'N/A'}</td>
+                <td>${(result['Call Summary'] || '').substring(0, 50)}${(result['Call Summary'] || '').length > 50 ? '...' : ''}</td>
                 <td>${result['Recording URL'] ? `<a href="${result['Recording URL']}" target="_blank" class="text-blue-600 hover:underline">Listen</a>` : 'N/A'}</td>
-                <td>${result['call_summary'] || 'N/A'}</td>
-                <td><button onclick="showTranscript(${index})" class="view-btn">View Transcript</button></td>
+                <td><button onclick="showTranscript(${index})" class="view-btn">View Details</button></td>
             </tr>
             `;
         });
@@ -1150,16 +952,23 @@ document.addEventListener('DOMContentLoaded', () => {
         window.callResultsData = resultData;
     }
 
-    // Helper functions
     function getAppointmentClass(appointment) {
         if (!appointment) return 'unknown';
         const apt = appointment.toLowerCase();
-        if (apt.includes('yes') || apt.includes('scheduled')) return 'success';
+        if (apt.includes('yes') || apt.includes('confirmed')) return 'success';
         if (apt.includes('no') || apt.includes('declined')) return 'declined';
         return 'pending';
     }
 
-    // Show transcript modal
+    function getStatusClass(status) {
+        if (!status) return 'blue';
+        const s = status.toLowerCase();
+        if (s.includes('confirmed')) return 'green';
+        if (s.includes('rescheduled')) return 'yellow';
+        if (s.includes('no answer') || s.includes('failed')) return 'red';
+        return 'blue';
+    }
+
     window.showTranscript = function(index) {
         const result = window.callResultsData[index];
         const transcript = result['Transcript'] || 'No transcript available';
@@ -1168,28 +977,34 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.innerHTML = `
             <div class="modal-content">
             <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
-            <h3>Call Transcript - ${result['Customer Name']}</h3>
+            <h3 class="text-xl font-semibold mb-4">Call Details - ${result['Customer Name']}</h3>
             <div class="call-details">
-                <p><strong>Phone:</strong> ${result['Phone Number']}</p>
-                <p><strong>Duration:</strong> ${result['Call Duration (mins)']} minutes</p>
-                <p><strong>Status:</strong> ${result['Call Status']}</p>
-                <p><strong>Outcome:</strong> ${result['Appointment Scheduled']}</p>
+                <div><strong>Phone:</strong> ${result['Phone Number']}</div>
+                <div><strong>Duration:</strong> ${result['Call Duration (mins)']} minutes</div>
+                <div><strong>Status:</strong> ${result['Call Status']}</div>
+                <div><strong>Cost:</strong> ₹${result['Call Cost']}</div>
             </div>
-            <div class="transcript-content">${transcript}</div>
+            <div>
+                <h4 class="font-semibold mb-2">Call Summary:</h4>
+                <p class="text-sm text-slate-600 mb-4">${result['Call Summary'] || 'No summary available'}</p>
+            </div>
+            <div>
+                <h4 class="font-semibold mb-2">Full Transcript:</h4>
+                <div class="transcript-content">${transcript}</div>
+            </div>
             </div>
         `;
         document.body.appendChild(modal);
     }
 
-    // Auto-refresh every 3 minutes
-    function startAutoRefresh() {
+    // --- INITIALIZATION ---
+    function init() {
+        checkCampaignReady();
         loadAllCallData(); // Load initially
-        setInterval(loadAllCallData, 180000); // Refresh every 3 minutes
+        setInterval(loadAllCallData, 60000); // Refresh every minute
     }
     
-    // Initialize when page loads
     init();
-
 });
 </script>
 </body>
