@@ -16,7 +16,7 @@
         }
         .step-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); /* shadow-xl */
         }
         .step-card.disabled {
             opacity: 0.5;
@@ -46,14 +46,20 @@
         .status-badge.yellow { background-color: #fef3c7; color: #92400e; }
         .status-badge.blue { background-color: #dbeafe; color: #1e40af; }
         .status-badge.red { background-color: #fee2e2; color: #991b1b; }
-        .status-badge.initiated { background-color: #dbeafe; color: #1e40af; }
-        .appointment-badge.success { background-color: #d1fae5; color: #065f46; }
-        .appointment-badge.declined { background-color: #fee2e2; color: #991b1b; }
-        .appointment-badge.pending { background-color: #fef3c7; color: #92400e; }
-        .appointment-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
+        #resultsTable tbody tr, #callLogsTable tbody tr, #manualContactsTable tbody tr {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .chart-bar {
+            transition: height 0.5s ease-out;
+        }
         .progress-bar {
             transition: width 1s ease-out;
         }
+        /* Styles for Google Sheet Data */
         .table-container {
             overflow-x: auto;
             border: 1px solid #e2e8f0;
@@ -78,6 +84,38 @@
         .data-table tbody tr:last-child td {
             border-bottom: none;
         }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background-color: #f8fafc;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-card h4 {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .status-badge.initiated { background-color: #dbeafe; color: #1e40af; }
+        .appointment-badge.success { background-color: #d1fae5; color: #065f46; }
+        .appointment-badge.declined { background-color: #fee2e2; color: #991b1b; }
+        .appointment-badge.pending { background-color: #fef3c7; color: #92400e; }
+        .appointment-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
+        .interest-badge.high { background-color: #c4b5fd; color: #5b21b6; }
+        .interest-badge.medium { background-color: #a5f3fc; color: #0e7490; }
+        .interest-badge.low { background-color: #fecaca; color: #b91c1c; }
+        .interest-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
         .view-btn {
             background-color: #eff6ff;
             color: #2563eb;
@@ -140,6 +178,23 @@
             padding-bottom: 1rem;
             border-bottom: 1px solid #e2e8f0;
         }
+        .donut-chart-container {
+            animation: fadeInScale 1s ease-out forwards;
+        }
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .chart-segment {
+            transform-origin: center;
+            transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -162,11 +217,11 @@
                 <div id="companySizeField" class="hidden">
                     <label for="companySize" class="block text-sm font-medium text-slate-700">Company Size</label>
                      <select id="companySize" name="companySize" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                        <option>1-10 employees</option>
-                        <option>11-50 employees</option>
-                        <option>51-200 employees</option>
-                        <option>201-500 employees</option>
-                        <option>500+ employees</option>
+                         <option>1-10 employees</option>
+                         <option>11-50 employees</option>
+                         <option>51-200 employees</option>
+                         <option>201-500 employees</option>
+                         <option>500+ employees</option>
                     </select>
                 </div>
                  <div>
@@ -351,23 +406,20 @@
                     </section>
                 </div>
 
-                <!-- Campaign Status Section - Only shows when campaign is active -->
                 <section id="campaignStatus" class="hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 mb-8">
                     <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
                             </div>
                             <div class="ml-4">
                                 <h2 class="text-xl font-semibold text-slate-900">Campaign Active</h2>
-                                <p id="campaignStatusText" class="text-slate-500">Calls in progress - Results will appear in real-time below.</p>
+                                <p id="campaignStatusText" class="text-slate-500">Calls in progress...</p>
                             </div>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <div class="loader"></div>
-                            <span class="text-sm text-slate-600">Processing...</span>
+                             <div class="loader"></div>
+                             <span class="text-sm text-slate-600">Processing...</span>
                         </div>
                     </div>
                 </section>
@@ -496,7 +548,7 @@
                     
                     <!-- Live Google Sheet Data Section -->
                     <div id="call-data-container" class="mt-8 pt-8 border-t border-slate-200">
-                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Call Results</h2>
+                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Google Sheet Data</h2>
                         <div id="call-results-container" class="mt-6"></div>
                     </div>
 
@@ -807,27 +859,24 @@ document.addEventListener('DOMContentLoaded', () => {
         createCampaignBtn.disabled = true;
         createCampaignBtn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Starting Campaign...</span>`;
 
-        // Show campaign status
         campaignStatus.classList.remove('hidden');
         campaignStatusText.textContent = `Campaign started - calling ${manualContacts.length} contacts. Results will appear shortly...`;
 
         const contactsToCall = [...manualContacts]; 
         
         if (contactsToCall.length > 0) {
-            // Clear contacts after starting campaign
             manualContacts = [];
             renderManualContacts();
             checkCampaignReady();
             
-            // Set campaign complete after reasonable time
+            // Simulate campaign completion
             setTimeout(() => {
                 campaignActive = false;
                 createCampaignBtn.innerHTML = 'Create Campaign';
                 campaignStatus.classList.add('hidden');
                 checkCampaignReady();
-                // Trigger data refresh to show results
-                loadAllCallData();
-            }, 10000); // 10 seconds - adjust based on your needs
+                loadAllCallData(); // Refresh data to show results
+            }, 10000); // Adjust time as needed
             
         } else {
             campaignActive = false;
@@ -837,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- DATA LOADING ---
+    // --- DATA LOADING & DISPLAY ---
     async function loadAllCallData() {
         console.log('Loading call data...');
         const fetchOptions = { cache: 'no-cache', mode: 'cors' };
@@ -860,7 +909,6 @@ document.addEventListener('DOMContentLoaded', () => {
             callResults = Array.isArray(resultsJson) ? resultsJson : (resultsJson.data || []);
         }
         
-        // Cache the data
         lastCallAttempts = callAttempts;
         lastCallResults = callResults;
 
@@ -868,7 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Loaded Call Results:', callResults);
         
         displayCallLogs(callAttempts);
-        displayCallResults(callResults);
+        displayCallResults(callResults, callAttempts);
         updateDashboardActivity(callResults);
         updateReportHeaderStats(callAttempts, callResults);
     }
@@ -900,7 +948,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function displayCallResults(resultData) {
+    function displayCallResults(resultData, attemptData) {
         const container = document.getElementById('call-results-container');
         if (!container) return;
         if (!Array.isArray(resultData) || resultData.length === 0) {
@@ -915,31 +963,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <th>Customer</th>
                     <th>Phone</th>
+                    <th>Call Start Time</th>
+                    <th>Call End Time</th>
                     <th>Duration (mins)</th>
                     <th>Status</th>
                     <th>Appointment</th>
                     <th>Cost</th>
                     <th>Summary</th>
+                    <th>Disconnect Reason</th>
                     <th>Recording</th>
-                    <th>Actions</th>
+                    <th>Call Successful</th>
+                    <th>Transcript</th>
                 </tr>
                 </thead>
                 <tbody>
         `;
         resultData.forEach((result, index) => {
+            const attempt = attemptData.find(a => a['Phone Number'] === result['Phone Number']);
+            const customerName = attempt ? attempt['Customer Name'] : (result['Customer Name'] || 'N/A');
             const appointmentClass = getAppointmentClass(result['Appointment Scheduled']);
             
             tableHTML += `
             <tr>
-                <td>${result['Customer Name'] || 'N/A'}</td>
+                <td>${customerName}</td>
                 <td>${result['Phone Number'] || 'N/A'}</td>
+                <td>${result['Call Start Time'] || 'N/A'}</td>
+                <td>${result['Call End Time'] || 'N/A'}</td>
                 <td>${result['Call Duration (mins)'] || 'N/A'}</td>
                 <td><span class="status-badge ${getStatusClass(result['Call Status'])}">${result['Call Status'] || 'N/A'}</span></td>
                 <td><span class="appointment-badge ${appointmentClass}">${result['Appointment Scheduled'] || 'Unknown'}</span></td>
                 <td>₹${result['Call Cost'] || '0'}</td>
-                <td>${(result['Call Summary'] || '').substring(0, 50)}${(result['Call Summary'] || '').length > 50 ? '...' : ''}</td>
+                <td><button onclick="showSummary(${index})" class="view-btn">View</button></td>
+                <td>${result['Disconnect Reason'] || 'N/A'}</td>
                 <td>${result['Recording URL'] ? `<a href="${result['Recording URL']}" target="_blank" class="text-blue-600 hover:underline">Listen</a>` : 'N/A'}</td>
-                <td><button onclick="showTranscript(${index})" class="view-btn">View Details</button></td>
+                <td>${result['Call Successful'] || 'N/A'}</td>
+                <td><button onclick="showTranscript(${index})" class="view-btn">View</button></td>
             </tr>
             `;
         });
@@ -967,6 +1025,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (s.includes('rescheduled')) return 'yellow';
         if (s.includes('no answer') || s.includes('failed')) return 'red';
         return 'blue';
+    }
+
+    window.showSummary = function(index) {
+        const result = window.callResultsData[index];
+        const summary = result['Call Summary'] || 'No summary was generated for this call.';
+        const modal = document.createElement('div');
+        modal.className = 'transcript-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+            <span class="close-btn" onclick="this.parentElement.parentElement.remove()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4">Call Summary - ${result['Customer Name']}</h3>
+            <div class="transcript-content" style="max-height: 400px; white-space: pre-wrap;">${summary}</div>
+            </div>
+        `;
+        document.body.appendChild(modal);
     }
 
     window.showTranscript = function(index) {
