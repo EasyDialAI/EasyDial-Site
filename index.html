@@ -57,7 +57,7 @@
             transition: height 0.5s ease-out;
         }
         .progress-bar {
-            transition: width 0.5s ease-out;
+            transition: width 1s ease-out;
         }
         /* Styles for Google Sheet Data */
         .table-container {
@@ -178,6 +178,23 @@
             padding-bottom: 1rem;
             border-bottom: 1px solid #e2e8f0;
         }
+        .donut-chart-container {
+            animation: fadeInScale 1s ease-out forwards;
+        }
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        .chart-segment {
+            transform-origin: center;
+            transition: stroke-dasharray 1.2s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -200,11 +217,11 @@
                 <div id="companySizeField" class="hidden">
                     <label for="companySize" class="block text-sm font-medium text-slate-700">Company Size</label>
                      <select id="companySize" name="companySize" class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-slate-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md">
-                        <option>1-10 employees</option>
-                        <option>11-50 employees</option>
-                        <option>51-200 employees</option>
-                        <option>201-500 employees</option>
-                        <option>500+ employees</option>
+                         <option>1-10 employees</option>
+                         <option>11-50 employees</option>
+                         <option>51-200 employees</option>
+                         <option>201-500 employees</option>
+                         <option>500+ employees</option>
                     </select>
                 </div>
                  <div>
@@ -521,86 +538,10 @@
                         <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Rescheduled</p><p id="rescheduledCallsStat" class="text-3xl font-bold text-yellow-600">0</p></div>
                         <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Answer Rate</p><p id="answerRateStat" class="text-3xl font-bold text-blue-600">0%</p></div>
                     </div>
-
-                    <!-- Charts -->
-                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                        <div class="lg:col-span-2 bg-slate-50 p-6 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-4">Call Outcomes</h3>
-                            <div class="flex items-center justify-center">
-                                <!-- Donut Chart SVG -->
-                                <svg width="200" height="200" viewBox="0 0 120 120">
-                                    <style>
-                                        .chart-segment {
-                                            transform-origin: center;
-                                            transition: all 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-                                        }
-                                    </style>
-                                    <circle cx="60" cy="60" r="50" fill="transparent" stroke="#e2e8f0" stroke-width="20" />
-                                    <!-- Group rotates everything to start at the top -->
-                                    <g transform="rotate(-90 60 60)">
-                                        <circle id="confirmedRing" class="chart-segment" cx="60" cy="60" r="50" fill="transparent" stroke="#22c55e" stroke-width="20" stroke-dasharray="0, 314.159" />
-                                        <circle id="rescheduledRing" class="chart-segment" cx="60" cy="60" r="50" fill="transparent" stroke="#f59e0b" stroke-width="20" stroke-dasharray="0, 314.159" />
-                                        <circle id="otherRing" class="chart-segment" cx="60" cy="60" r="50" fill="transparent" stroke="#3b82f6" stroke-width="20" stroke-dasharray="0, 314.159" />
-                                    </g>
-                                </svg>
-                            </div>
-                            <div class="mt-4 space-y-2 text-sm">
-                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-green-500 mr-2"></span>Confirmed <span id="confirmedPercent" class="ml-auto font-medium">0%</span></div>
-                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-yellow-400 mr-2"></span>Rescheduled <span id="rescheduledPercent" class="ml-auto font-medium">0%</span></div>
-                                <div class="flex items-center"><span class="h-3 w-3 rounded-full bg-blue-500 mr-2"></span>Other <span id="otherPercent" class="ml-auto font-medium">0%</span></div>
-                            </div>
-                        </div>
-                        <div class="lg:col-span-3 bg-slate-50 p-6 rounded-lg">
-                            <h3 class="font-semibold text-slate-800 mb-4">Call Activity this Week</h3>
-                            <div class="flex justify-between items-end h-48 space-x-2">
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-400 rounded-t-md" style="height: 60%;"></span><span class="text-xs mt-2 text-slate-500">Mon</span></div>
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-500 rounded-t-md" style="height: 80%;"></span><span class="text-xs mt-2 text-slate-500">Tue</span></div>
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-400 rounded-t-md" style="height: 50%;"></span><span class="text-xs mt-2 text-slate-500">Wed</span></div>
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-500 rounded-t-md" style="height: 90%;"></span><span class="text-xs mt-2 text-slate-500">Thu</span></div>
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-600 rounded-t-md" style="height: 100%;"></span><span class="text-xs mt-2 text-slate-500">Fri</span></div>
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-300 rounded-t-md" style="height: 30%;"></span><span class="text-xs mt-2 text-slate-500">Sat</span></div>
-                                <div class="flex-1 flex flex-col items-center justify-end"><span class="chart-bar w-4/5 bg-blue-300 rounded-t-md" style="height: 20%;"></span><span class="text-xs mt-2 text-slate-500">Sun</span></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Detailed Call Analysis Table -->
-                    <div class="mt-8">
-                        <h3 class="text-xl font-semibold text-slate-800 mb-4">Detailed Call Analysis (Simulation)</h3>
-                        <div class="overflow-x-auto border rounded-lg">
-                            <table id="reportsDetailTable" class="min-w-full divide-y divide-slate-200">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Name</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Phone Number</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Start Time</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call End Time</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Duration (mins)</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Status</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Response</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Appointment Scheduled</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Customer Interest Level</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Follow Up Required</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Quality Score</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Transcript</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Call Cost</th>
-                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Outcome Category</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="reportsDetailTableBody" class="bg-white divide-y divide-slate-200">
-                                    <tr id="noReportDataRow">
-                                        <td colspan="14" class="text-center text-slate-500 py-6">No call analysis data yet. Start a campaign to see results.</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
                     
                     <!-- Live Google Sheet Data Section -->
                     <div id="call-data-container" class="mt-8 pt-8 border-t border-slate-200">
                          <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Google Sheet Data</h2>
-                        <div id="call-summary-container"></div>
-                        <div id="call-attempts-container" class="mt-6"></div>
                         <div id="call-results-container" class="mt-6"></div>
                     </div>
 
@@ -638,7 +579,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualEntryView = document.getElementById('manualEntryView');
     const reportsView = document.getElementById('reportsView');
     const callLogsTableBody = document.querySelector('#callLogsTable tbody');
-    const reportsDetailTableBody = document.getElementById('reportsDetailTableBody');
     const createCampaignBtn = document.getElementById('createCampaignBtn');
     const fileUpload = document.getElementById('file-upload');
     const campaignReadyText = document.getElementById('campaignReadyText');
@@ -674,6 +614,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let isFileUploaded = false;
     let manualContacts = [];
     let callSimulationInterval;
+    let lastAttemptsData = [];
+    let lastResultsData = [];
+
 
     // --- AUTH LOGIC ---
     let isSignUp = false;
@@ -735,13 +678,13 @@ document.addEventListener('DOMContentLoaded', () => {
         [dashboardView, callLogsView, manualEntryView, reportsView].forEach(v => v.classList.add('hidden'));
         viewToShow.classList.remove('hidden');
         
-        // Always refresh data on view switch to be safe
-        updateReportAnalytics();
-        updateDashboardActivity();
-        
-        updateNavStyles(viewToShow.id);
-        sidebar.classList.add('-translate-x-full');
-        sidebarOverlay.classList.add('hidden');
+        // Refresh data using cached data when switching views
+        if (viewToShow === reportsView) {
+             updateReportHeaderStats(lastAttemptsData, lastResultsData);
+        }
+        if (viewToShow === dashboardView) {
+            updateDashboardActivity(lastResultsData);
+        }
     }
 
     function updateNavStyles(activeViewId) {
@@ -755,62 +698,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- REPORTING & ANALYTICS ---
-    function updateReportAnalytics() {
-        const reportRows = reportsDetailTableBody.querySelectorAll('tr:not(#noReportDataRow)');
-        let totalCalls = reportRows.length;
-        let confirmed = 0, rescheduled = 0, answered = 0;
+    function updateReportHeaderStats(attempts, results) {
+        if (!Array.isArray(attempts) || !Array.isArray(results)) return;
 
-        reportRows.forEach(row => {
-            const status = row.querySelector('.status-badge')?.textContent.trim().toLowerCase() || '';
-            if (status === 'confirmed') { confirmed++; answered++; }
-            else if (status === 'rescheduled') { rescheduled++; answered++; }
-            else if (status !== 'no answer' && status !== 'call failed') { answered++; }
-        });
-
-        const confirmedPercent = totalCalls > 0 ? (confirmed / totalCalls) * 100 : 0;
-        const rescheduledPercent = totalCalls > 0 ? (rescheduled / totalCalls) * 100 : 0;
-        const otherPercent = 100 - confirmedPercent - rescheduledPercent;
+        const totalCalls = attempts.length;
+        const confirmed = results.filter(r => r['Call Status']?.toLowerCase() === 'confirmed').length;
+        const rescheduled = results.filter(r => r['Call Status']?.toLowerCase() === 'rescheduled').length;
+        const answered = results.length;
         const answerRate = totalCalls > 0 ? (answered / totalCalls) * 100 : 0;
 
         document.getElementById('totalCallsStat').textContent = totalCalls;
         document.getElementById('confirmedCallsStat').textContent = confirmed;
         document.getElementById('rescheduledCallsStat').textContent = rescheduled;
         document.getElementById('answerRateStat').textContent = `${answerRate.toFixed(0)}%`;
-
-        document.getElementById('confirmedPercent').textContent = `${confirmedPercent.toFixed(0)}%`;
-        document.getElementById('rescheduledPercent').textContent = `${rescheduledPercent.toFixed(0)}%`;
-        document.getElementById('otherPercent').textContent = `${otherPercent.toFixed(0)}%`;
-
-        // Animate Donut Chart
-        const confirmedRing = document.getElementById('confirmedRing');
-        const rescheduledRing = document.getElementById('rescheduledRing');
-        const otherRing = document.getElementById('otherRing');
-        const circumference = 2 * Math.PI * 50;
-
-        const confirmedSegment = circumference * (confirmedPercent / 100);
-        const rescheduledSegment = circumference * (rescheduledPercent / 100);
-        const otherSegment = circumference - confirmedSegment - rescheduledSegment;
-
-        const rescheduledRotation = confirmedPercent * 3.6;
-        const otherRotation = (confirmedPercent + rescheduledPercent) * 3.6;
-        
-        setTimeout(() => {
-            confirmedRing.style.strokeDasharray = `${confirmedSegment} ${circumference}`;
-            rescheduledRing.style.strokeDasharray = `${rescheduledSegment} ${circumference}`;
-            rescheduledRing.style.transform = `rotate(${rescheduledRotation}deg)`;
-            otherRing.style.strokeDasharray = `${otherSegment} ${circumference}`;
-            otherRing.style.transform = `rotate(${otherRotation}deg)`;
-        }, 100);
     }
-    
-    function updateDashboardActivity() {
-        const reportRows = reportsDetailTableBody.querySelectorAll('tr:not(#noReportDataRow)');
-        let totalCalls = reportRows.length;
+
+    function updateDashboardActivity(results) {
+        if (!Array.isArray(results)) return;
+
+        let totalCalls = results.length;
         let confirmed = 0;
         let rescheduled = 0;
 
-        reportRows.forEach(row => {
-            const status = row.querySelector('.status-badge')?.textContent.trim().toLowerCase() || '';
+        results.forEach(result => {
+            const status = result['Call Status']?.trim().toLowerCase() || '';
             if (status === 'confirmed') {
                 confirmed++;
             } else if (status === 'rescheduled') {
@@ -821,19 +732,48 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmedPercent = totalCalls > 0 ? (confirmed / totalCalls) * 100 : 0;
         const rescheduledPercent = totalCalls > 0 ? (rescheduled / totalCalls) * 100 : 0;
 
-        // Update UI Elements
         const confirmedPercentEl = document.getElementById('confirmedCallsPercent');
         const confirmedBarEl = document.getElementById('confirmedCallsBar');
         const rescheduledPercentEl = document.getElementById('rescheduledCallsPercent');
         const rescheduledBarEl = document.getElementById('rescheduledCallsBar');
 
         if(confirmedPercentEl && confirmedBarEl && rescheduledPercentEl && rescheduledBarEl) {
-            confirmedPercentEl.textContent = `${confirmedPercent.toFixed(0)}%`;
-            confirmedBarEl.style.width = `${confirmedPercent}%`;
-            
-            rescheduledPercentEl.textContent = `${rescheduledPercent.toFixed(0)}%`;
-            rescheduledBarEl.style.width = `${rescheduledPercent}%`;
+            // Reset styles for animation trigger
+            confirmedBarEl.style.width = `0%`;
+            rescheduledBarEl.style.width = `0%`;
+            confirmedPercentEl.textContent = `0%`;
+            rescheduledPercentEl.textContent = `0%`;
+
+            // Animate to target values
+            setTimeout(() => {
+                confirmedBarEl.style.width = `${confirmedPercent}%`;
+                rescheduledBarEl.style.width = `${rescheduledPercent}%`;
+                animateCounter(confirmedPercentEl, confirmedPercent);
+                animateCounter(rescheduledPercentEl, rescheduledPercent);
+            }, 100); // Small delay to allow browser to render the 0% state
         }
+    }
+
+    function animateCounter(element, target) {
+        let current = 0;
+        const targetValue = Math.round(target);
+        if (targetValue === 0) {
+            element.textContent = '0%';
+            return;
+        }
+        const increment = targetValue / 50; // Animate over 50 steps
+        const duration = 1000;
+        const stepTime = duration / 50;
+
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= targetValue) {
+                clearInterval(timer);
+                element.textContent = `${targetValue}%`;
+            } else {
+                element.textContent = `${Math.round(current)}%`;
+            }
+        }, stepTime);
     }
 
     // --- CAMPAIGN & CONTACT MANAGEMENT ---
@@ -880,11 +820,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 manualContactForm.reset();
             } else {
                 console.error('Failed to send contact to n8n:', response.status);
-                alert('Failed to add contact to n8n workflow');
+                // Not using alert()
             }
         } catch (error) {
             console.error('Error sending contact to n8n:', error);
-            alert('Network error sending contact to n8n');
+            // Not using alert()
         }
     }
 
@@ -941,42 +881,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleIncomingCallResult(result) {
         console.log("Received simulated call result:", result);
         updateCallLogStatus(result);
-        addReportDataRow(result);
         
-        // Since data has changed, update all analytics displays
-        updateReportAnalytics();
-        updateDashboardActivity();
+        // Add simulated result to our cached live data and re-render
+        lastResultsData.unshift(result); // Add to the beginning of the array
+        lastAttemptsData = lastAttemptsData.filter(attempt => attempt['Phone Number'] !== result['Phone Number']);
+        
+        // Re-render all data displays
+        displayCallLogs(lastAttemptsData);
+        displayCallResults(lastResultsData);
+        updateDashboardActivity(lastResultsData);
+        updateReportHeaderStats(lastAttemptsData, lastResultsData);
     }
 
     function updateCallLogStatus(result) {
-        const logRow = callLogsTableBody.querySelector(`tr[data-phone='${result.phoneNumber}']`);
+        const logRow = callLogsTableBody.querySelector(`tr[data-phone='${result['Phone Number']}']`);
         if (logRow) {
             const statusBadge = logRow.querySelector('.status-badge');
-            statusBadge.textContent = result.callStatus;
+            statusBadge.textContent = result['Call Status'];
             statusBadge.className = `status-badge ${result.statusClass}`;
         }
-    }
-    
-    function addReportDataRow(result) {
-        document.getElementById('noReportDataRow')?.remove();
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-4 text-sm font-medium text-slate-900">${result.customerName}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.phoneNumber}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.callStartTime}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.callEndTime}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.callDuration}</td>
-            <td class="px-6 py-4 text-sm"><span class="status-badge ${result.statusClass}">${result.callStatus}</span></td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.customerResponse}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.appointmentScheduled}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.customerInterestLevel}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.followUpRequired}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.callQualityScore}</td>
-            <td class="px-6 py-4 text-sm"><button class="text-blue-600 hover:text-blue-800">View</button></td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.callCost}</td>
-            <td class="px-6 py-4 text-sm text-slate-500">${result.outcomeCategory}</td>
-        `;
-        reportsDetailTableBody.prepend(row);
     }
 
     function startCallSimulation(contacts) {
@@ -985,11 +908,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let callIndex = 0;
         const mockResults = [
-            { status: 'Confirmed', class: 'green', duration: '1.75', response: 'Agreed', apptScheduled: 'Yes', interest: 'High', followUp: 'No', quality: '4/5', cost: '$0.21', category: 'Success' },
-            { status: 'Rescheduled', class: 'yellow', duration: '2.25', response: 'Conflict', apptScheduled: 'No', interest: 'Medium', followUp: 'Yes', quality: '5/5', cost: '$0.27', category: 'Follow-up' },
-            { status: 'No Answer', class: 'red', duration: '0.36', response: 'N/A', apptScheduled: 'N/A', interest: 'Low', followUp: 'Yes', quality: 'N/A', cost: '$0.04', category: 'Retry' },
-            { status: 'Confirmed', class: 'green', duration: '1.91', response: 'OK', apptScheduled: 'Yes', interest: 'High', followUp: 'No', quality: '5/5', cost: '$0.23', category: 'Success' },
-            { status: 'Left Voicemail', class: 'yellow', duration: '0.91', response: 'Voicemail', apptScheduled: 'No', interest: 'Medium', followUp: 'Yes', quality: 'N/A', cost: '$0.11', category: 'Follow-up' }
+            { status: 'Confirmed', class: 'green', duration: '1.75', apptScheduled: 'Yes', followUp: 'No', cost: '0.21', recordingUrl: 'https://example.com/rec/123.mp3' },
+            { status: 'Rescheduled', class: 'yellow', duration: '2.25', apptScheduled: 'No', followUp: 'Yes', cost: '0.27', recordingUrl: 'https://example.com/rec/124.mp3' },
+            { status: 'No Answer', class: 'red', duration: '0.36', apptScheduled: 'N/A', followUp: 'Yes', cost: '0.04', recordingUrl: null },
+            { status: 'Confirmed', class: 'green', duration: '1.91', apptScheduled: 'Yes', followUp: 'No', cost: '0.23', recordingUrl: 'https://example.com/rec/125.mp3' },
+            { status: 'Left Voicemail', class: 'yellow', duration: '0.91', apptScheduled: 'No', followUp: 'Yes', cost: '0.11', recordingUrl: 'https://example.com/rec/126.mp3' }
         ];
 
         callSimulationInterval = setInterval(() => {
@@ -1005,20 +928,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const startTime = new Date(now.getTime() - (parseFloat(resultType.duration) * 60000)); // Subtract duration from now
 
             const fullResult = {
-                customerName: contact.name,
-                phoneNumber: contact.phone,
-                callStartTime: startTime.toLocaleTimeString(),
-                callEndTime: now.toLocaleTimeString(),
-                callDuration: resultType.duration,
-                callStatus: resultType.status,
-                statusClass: resultType.class,
-                customerResponse: resultType.response,
-                appointmentScheduled: resultType.apptScheduled,
-                customerInterestLevel: resultType.interest,
-                followUpRequired: resultType.followUp,
-                callQualityScore: resultType.quality,
-                callCost: resultType.cost,
-                outcomeCategory: resultType.category,
+                'Customer Name': contact.name,
+                'Phone Number': contact.phone,
+                'Call Start Time': startTime.toLocaleTimeString(),
+                'Call End Time': now.toLocaleTimeString(),
+                'Call Duration (mins)': resultType.duration,
+                'Call Status': resultType.status,
+                statusClass: resultType.class, // For local styling
+                'Appointment Scheduled': resultType.apptScheduled,
+                'Follow Up Required': resultType.followUp,
+                'Call Cost': resultType.cost,
+                'Disconnect Reason': 'Call completed normally.',
+                'call_summary': `The call was marked as ${resultType.status}.`,
+                'Transcript': `This is a simulated transcript for ${contact.name}. The call outcome was: ${resultType.status}.`,
+                'Recording URL': resultType.recordingUrl
             };
             
             addResultRow(contact, { text: `Calling...`, class: 'blue' });
@@ -1073,121 +996,103 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- INITIALIZATION ---
-    function initializeCallLogs() {
-        const callLogsTableBody = document.querySelector('#callLogsTable tbody');
-        if (callLogsTableBody.children.length === 0) {
-            callLogsTableBody.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center text-slate-500 py-6">No call logs yet.</td>
-                </tr>
-            `;
-        }
-    }
-    
     function init() {
         checkCampaignReady();
-        initializeCallLogs();
-        updateReportAnalytics();
-        updateDashboardActivity();
-        startAutoRefresh(); // <-- Added your new function here
+        startAutoRefresh();
     }
 
-    // --- GOOGLE SHEET SCRIPT (PASTED AS IS, WITH FIXES) ---
+    // --- GOOGLE SHEET SCRIPT ---
     // API URLs from your Google Apps Scripts
     const CALL_ATTEMPTS_URL = 'https://script.google.com/macros/s/AKfycbzgjO905QA1d_nD7eg5XsZJMAd1ehRjOopqZcuoQMu3BbBBQ_J6q8TEdXHkR8BUL8bYvQ/exec';
     const CALL_RESULTS_URL = 'https://script.google.com/macros/s/AKfycbz7nJkC84cDHW-1U3jd_k6AuGkVWOTDC_dlDsT3gZtLb8xAlu8kXW7m8fPqLrVpWbCH/exec';
 
     // Load both datasets
     async function loadAllCallData() {
-        try {
-            console.log('Loading call data...');
-            
-            const [attemptsResponse, resultsResponse] = await Promise.all([
-                fetch(CALL_ATTEMPTS_URL),
-                fetch(CALL_RESULTS_URL)
-            ]);
-            
-            if (!attemptsResponse.ok || !resultsResponse.ok) {
-                throw new Error('Failed to fetch data from one or more Google Sheet URLs.');
-            }
+        console.log('Loading call data...');
+        const fetchOptions = { cache: 'no-cache', mode: 'cors' };
+        
+        const [attemptsResult, resultsResult] = await Promise.allSettled([
+            fetch(CALL_ATTEMPTS_URL, fetchOptions),
+            fetch(CALL_RESULTS_URL, fetchOptions)
+        ]);
 
-            const attemptsJson = await attemptsResponse.json();
-            const resultsJson = await resultsResponse.json();
-            
-            const callAttempts = Array.isArray(attemptsJson) ? attemptsJson : (attemptsJson.data || []);
-            const callResults = Array.isArray(resultsJson) ? resultsJson : (resultsJson.data || []);
-            
-            console.log('Processed Call Attempts:', callAttempts);
-            console.log('Processed Call Results:', callResults);
-            
-            displayCallAttempts(callAttempts);
-            displayCallResults(callResults);
-            displayCallSummary(callAttempts, callResults);
-            
-        } catch (error) {
-            console.error('Error loading call data:', error);
+        let callAttempts = [];
+        let callResults = [];
+        let hasError = false;
+
+        if (attemptsResult.status === 'fulfilled' && attemptsResult.value.ok) {
+            const attemptsJson = await attemptsResult.value.json();
+            callAttempts = Array.isArray(attemptsJson) ? attemptsJson : (attemptsJson.data || []);
+        } else {
+            hasError = true;
+            const status = attemptsResult.value ? attemptsResult.value.status : 'N/A';
+            console.error('Failed to fetch call attempts:', attemptsResult.reason || `Status: ${status}`);
+        }
+
+        if (resultsResult.status === 'fulfilled' && resultsResult.value.ok) {
+            const resultsJson = await resultsResult.value.json();
+            callResults = Array.isArray(resultsJson) ? resultsJson : (resultsJson.data || []);
+        } else {
+            hasError = true;
+            const status = resultsResult.value ? resultsResult.value.status : 'N/A';
+            console.error('Failed to fetch call results:', resultsResult.reason || `Status: ${status}`);
+        }
+
+        if (hasError) {
             const container = document.getElementById('call-data-container');
             if (container) {
-                 container.innerHTML = '<p class="text-red-600 text-center p-4">Error loading live data. This may be a temporary network or CORS issue. Please check the console.</p>';
+                 container.innerHTML = `<div class="text-red-600 text-center p-4">
+                    <p class="font-bold">Error loading live data.</p>
+                    <p class="text-sm mt-1">One or more data sources could not be reached. This could be a temporary network issue or a problem with the data source configuration (e.g., CORS or permissions). Please check the console for details.</p>
+                 </div>`;
             }
         }
+        
+        // Cache the data regardless of errors, so we don't lose partial data
+        lastAttemptsData = callAttempts;
+        lastResultsData = callResults;
+
+        console.log('Processed Call Logs:', callAttempts);
+        console.log('Processed Call Results:', callResults);
+        
+        displayCallLogs(callAttempts);
+        displayCallResults(callResults);
+        updateDashboardActivity(callResults);
+        updateReportHeaderStats(callAttempts, callResults);
     }
 
-    // Display call attempts table
-    function displayCallAttempts(attemptData) {
-        const container = document.getElementById('call-attempts-container');
-        if (!container) {
-            // FIX: If the container isn't on the page, don't try to update it.
-            // This prevents errors when this code runs while the user is on the dashboard.
-            return;
-        }
-        if (!Array.isArray(attemptData) || attemptData.length === 0) {
-            container.innerHTML = '<p class="text-slate-500 text-center p-4">No call attempts logged yet.</p>';
-            return;
-        }
-        let tableHTML = `
-            <h3>Call Attempts</h3>
-            <div class="table-container">
-            <table class="data-table">
-                <thead>
+    // This function now populates the main Call Logs page
+    function displayCallLogs(logData) {
+        const container = document.querySelector('#callLogsTable tbody');
+        if (!container) return;
+
+        container.innerHTML = ''; // Clear existing logs
+
+        if (!Array.isArray(logData) || logData.length === 0) {
+            container.innerHTML = `
                 <tr>
-                    <th>Customer Name</th>
-                    <th>Phone Number</th>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th>Reason</th>
-                    <th>Status</th>
-                </tr>
-                </thead>
-                <tbody>
-        `;
-        attemptData.forEach(attempt => {
-            tableHTML += `
-            <tr>
-                <td>${attempt['Customer Name'] || 'N/A'}</td>
-                <td>${attempt['Phone Number'] || 'N/A'}</td>
-                <td>${attempt['Call Date'] || 'N/A'}</td>
-                <td>${attempt['Call Time'] || 'N/A'}</td>
-                <td>${attempt['Call Reason'] || 'N/A'}</td>
-                <td><span class="status-badge initiated">${attempt['Call Status'] || 'N/A'}</span></td>
-            </tr>
-            `;
+                    <td colspan="6" class="text-center text-slate-500 py-6">No call logs recorded yet.</td>
+                </tr>`;
+            return;
+        }
+
+        logData.forEach(log => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 text-sm font-medium text-slate-900">${log['Customer Name'] || 'N/A'}</td>
+                <td class="px-6 py-4 text-sm text-slate-500">${log['Phone Number'] || 'N/A'}</td>
+                <td class="px-6 py-4 text-sm text-slate-500">${log['Call Date'] || 'N/A'}</td>
+                <td class="px-6 py-4 text-sm text-slate-500">${log['Call Time'] || 'N/A'}</td>
+                <td class="px-6 py-4 text-sm text-slate-500">${log['Call Reason'] || 'N/A'}</td>
+                <td class="px-6 py-4 text-sm"><span class="status-badge blue">${log['Call Status'] || 'N/A'}</span></td>`;
+            container.appendChild(row);
         });
-        tableHTML += `
-                </tbody>
-            </table>
-            </div>
-        `;
-        container.innerHTML = tableHTML;
     }
 
     // Display call results table
     function displayCallResults(resultData) {
         const container = document.getElementById('call-results-container');
-        if (!container) {
-             // FIX: If the container isn't on the page, don't try to update it.
-            return;
-        }
+        if (!container) return;
         if (!Array.isArray(resultData) || resultData.length === 0) {
             container.innerHTML = '<p class="text-slate-500 text-center p-4">No call results available yet.</p>';
             return;
@@ -1200,13 +1105,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tr>
                     <th>Customer</th>
                     <th>Phone</th>
+                    <th>Call Start Time</th>
+                    <th>Call End Time</th>
                     <th>Duration</th>
                     <th>Status</th>
-                    <th>Response</th>
                     <th>Appointment</th>
-                    <th>Interest</th>
                     <th>Follow Up</th>
                     <th>Cost</th>
+                    <th>Disconnect Reason</th>
+                    <th>Recording URL</th>
+                    <th>Call Summary</th>
                     <th>Actions</th>
                 </tr>
                 </thead>
@@ -1214,19 +1122,21 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         resultData.forEach((result, index) => {
             const appointmentClass = getAppointmentClass(result['Appointment Scheduled']);
-            const interestClass = getInterestClass(result['Customer Interest Level']);
             
             tableHTML += `
             <tr>
                 <td>${result['Customer Name'] || 'N/A'}</td>
                 <td>${result['Phone Number'] || 'N/A'}</td>
+                <td>${result['Call Start Time'] || 'N/A'}</td>
+                <td>${result['Call End Time'] || 'N/A'}</td>
                 <td>${result['Call Duration (mins)'] || 'N/A'} min</td>
                 <td>${result['Call Status'] || 'N/A'}</td>
-                <td>${result['Customer Response'] || 'N/A'}</td>
                 <td><span class="appointment-badge ${appointmentClass}">${result['Appointment Scheduled'] || 'Unknown'}</span></td>
-                <td><span class="interest-badge ${interestClass}">${result['Customer Interest Level'] || 'Unknown'}</span></td>
                 <td>${result['Follow Up Required'] || 'No'}</td>
                 <td>₹${result['Call Cost'] || '0'}</td>
+                <td>${result['Disconnect Reason'] || 'N/A'}</td>
+                <td>${result['Recording URL'] ? `<a href="${result['Recording URL']}" target="_blank" class="text-blue-600 hover:underline">Listen</a>` : 'N/A'}</td>
+                <td>${result['call_summary'] || 'N/A'}</td>
                 <td><button onclick="showTranscript(${index})" class="view-btn">View Transcript</button></td>
             </tr>
             `;
@@ -1240,53 +1150,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.callResultsData = resultData;
     }
 
-    // Display summary statistics
-    function displayCallSummary(attempts, results) {
-        const container = document.getElementById('call-summary-container');
-         if (!container) {
-             // FIX: If the container isn't on the page, don't try to update it.
-            return;
-        }
-        const totalAttempts = Array.isArray(attempts) ? attempts.length : 0;
-        const totalCompleted = Array.isArray(results) ? results.length : 0;
-        const totalAppointments = Array.isArray(results) ? results.filter(r => 
-            r['Appointment Scheduled'] && r['Appointment Scheduled'].toLowerCase().includes('yes')
-        ).length : 0;
-        const completionRate = totalAttempts > 0 ? Math.round((totalCompleted / totalAttempts) * 100) : 0;
-        const appointmentRate = totalCompleted > 0 ? Math.round((totalAppointments / totalCompleted) * 100) : 0;
-        const totalCost = Array.isArray(results) ? results.reduce((sum, r) => sum + (parseFloat(r['Call Cost']) || 0), 0) : 0;
-        const summaryHTML = `
-            <h3>Call Performance Summary</h3>
-            <div class="summary-grid">
-            <div class="stat-card">
-                <h4>Total Attempts</h4>
-                <span class="stat-number">${totalAttempts}</span>
-            </div>
-            <div class="stat-card">
-                <h4>Completed Calls</h4>
-                <span class="stat-number">${totalCompleted}</span>
-            </div>
-            <div class="stat-card">
-                <h4>Appointments Scheduled</h4>
-                <span class="stat-number">${totalAppointments}</span>
-            </div>
-            <div class="stat-card">
-                <h4>Completion Rate</h4>
-                <span class="stat-number">${completionRate}%</span>
-            </div>
-            <div class="stat-card">
-                <h4>Appointment Rate</h4>
-                <span class="stat-number">${appointmentRate}%</span>
-            </div>
-            <div class="stat-card">
-                <h4>Total Cost</h4>
-                <span class="stat-number">₹${totalCost.toFixed(2)}</span>
-            </div>
-            </div>
-        `;
-        container.innerHTML = summaryHTML;
-    }
-
     // Helper functions
     function getAppointmentClass(appointment) {
         if (!appointment) return 'unknown';
@@ -1296,17 +1159,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'pending';
     }
 
-    function getInterestClass(interest) {
-        if (!interest) return 'unknown';
-        const int = interest.toLowerCase();
-        if (int.includes('high')) return 'high';
-        if (int.includes('medium')) return 'medium';
-        if (int.includes('low')) return 'low';
-        return 'unknown';
-    }
-
     // Show transcript modal
-    function showTranscript(index) {
+    window.showTranscript = function(index) {
         const result = window.callResultsData[index];
         const transcript = result['Transcript'] || 'No transcript available';
         const modal = document.createElement('div');
