@@ -373,7 +373,7 @@
                                 </div>
                                 <div>
                                     <div class="flex justify-between mb-1">
-                                        <span class="text-base font-medium text-yellow-700">Rescheduled Calls</span>
+                                        <span class="text-base font-medium text-yellow-700">Canceled Calls</span>
                                         <span id="rescheduledCallsPercent" class="text-sm font-medium text-yellow-700">0%</span>
                                     </div>
                                     <div class="w-full bg-slate-200 rounded-full h-2.5">
@@ -542,13 +542,13 @@
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
                         <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Total Calls</p><p id="totalCallsStat" class="text-3xl font-bold text-slate-800">0</p></div>
                         <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Confirmed</p><p id="confirmedCallsStat" class="text-3xl font-bold text-green-600">0</p></div>
-                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Rescheduled</p><p id="rescheduledCallsStat" class="text-3xl font-bold text-yellow-600">0</p></div>
+                        <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Canceled</p><p id="rescheduledCallsStat" class="text-3xl font-bold text-yellow-600">0</p></div>
                         <div class="bg-slate-50 p-4 rounded-lg text-center"><p class="text-sm text-slate-500">Answer Rate</p><p id="answerRateStat" class="text-3xl font-bold text-blue-600">0%</p></div>
                     </div>
                     
                     <!-- Live Google Sheet Data Section -->
                     <div id="call-data-container" class="mt-8 pt-8 border-t border-slate-200">
-                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Google Sheet Data</h2>
+                         <h2 class="text-2xl font-semibold text-slate-900 mb-4">Live Call Results</h2>
                         <div id="call-results-container" class="mt-6"></div>
                     </div>
 
@@ -708,35 +708,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Array.isArray(attempts) || !Array.isArray(results)) return;
 
         const totalCalls = attempts.length;
-        const confirmed = results.filter(r => r['Call Status']?.toLowerCase() === 'confirmed').length;
-        const rescheduled = results.filter(r => r['Call Status']?.toLowerCase() === 'rescheduled').length;
+        const confirmed = results.filter(r => (r['Appointment Scheduled'])?.toLowerCase().includes('confirmed')).length;
+        const canceled = results.filter(r => (r['Appointment Scheduled'])?.toLowerCase().includes('canceled')).length;
         const answered = results.length;
         const answerRate = totalCalls > 0 ? (answered / totalCalls) * 100 : 0;
 
         document.getElementById('totalCallsStat').textContent = totalCalls;
         document.getElementById('confirmedCallsStat').textContent = confirmed;
-        document.getElementById('rescheduledCallsStat').textContent = rescheduled;
+        document.getElementById('rescheduledCallsStat').textContent = canceled; // This ID is still 'rescheduled' but shows 'Canceled' label
         document.getElementById('answerRateStat').textContent = `${answerRate.toFixed(0)}%`;
     }
 
     function updateDashboardActivity(results) {
         if (!Array.isArray(results)) return;
 
-        let totalCalls = results.length;
+        let totalAnswered = results.length;
         let confirmed = 0;
-        let rescheduled = 0;
+        let canceled = 0;
 
         results.forEach(result => {
-            const status = result['Call Status']?.trim().toLowerCase() || '';
-            if (status === 'confirmed') {
+            const status = (result['Appointment Scheduled'])?.trim().toLowerCase() || '';
+            if (status.includes('confirmed')) {
                 confirmed++;
-            } else if (status === 'rescheduled') {
-                rescheduled++;
+            } else if (status.includes('canceled')) {
+                canceled++;
             }
         });
 
-        const confirmedPercent = totalCalls > 0 ? (confirmed / totalCalls) * 100 : 0;
-        const rescheduledPercent = totalCalls > 0 ? (rescheduled / totalCalls) * 100 : 0;
+        const confirmedPercent = totalAnswered > 0 ? (confirmed / totalAnswered) * 100 : 0;
+        const canceledPercent = totalAnswered > 0 ? (canceled / totalAnswered) * 100 : 0;
 
         const confirmedPercentEl = document.getElementById('confirmedCallsPercent');
         const confirmedBarEl = document.getElementById('confirmedCallsBar');
@@ -749,9 +749,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             setTimeout(() => {
                 confirmedBarEl.style.width = `${confirmedPercent}%`;
-                rescheduledBarEl.style.width = `${rescheduledPercent}%`;
+                rescheduledBarEl.style.width = `${canceledPercent}%`;
                 confirmedPercentEl.textContent = `${confirmedPercent.toFixed(0)}%`;
-                rescheduledPercentEl.textContent = `${rescheduledPercent.toFixed(0)}%`;
+                rescheduledPercentEl.textContent = `${canceledPercent.toFixed(0)}%`;
             }, 100);
         }
     }
@@ -966,8 +966,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <th>Call Start Time</th>
                     <th>Call End Time</th>
                     <th>Duration (mins)</th>
-                    <th>Status</th>
-                    <th>Appointment</th>
+                    <th>Appointment Status</th>
                     <th>Cost</th>
                     <th>Summary</th>
                     <th>Disconnect Reason</th>
@@ -979,9 +978,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <tbody>
         `;
         resultData.forEach((result, index) => {
-            const attempt = attemptData.find(a => a['Phone Number'] === result['Phone Number']);
-            const customerName = attempt ? attempt['Customer Name'] : (result['Customer Name'] || 'N/A');
-            const appointmentClass = getAppointmentClass(result['Appointment Scheduled']);
+            const customerName = result['Customer Name'] || 'N/A';
+            const appointmentStatus = result['Appointment Scheduled'] || 'Unknown';
+            const appointmentClass = getAppointmentClass(appointmentStatus);
             
             tableHTML += `
             <tr>
@@ -990,8 +989,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${result['Call Start Time'] || 'N/A'}</td>
                 <td>${result['Call End Time'] || 'N/A'}</td>
                 <td>${result['Call Duration (mins)'] || 'N/A'}</td>
-                <td><span class="status-badge ${getStatusClass(result['Call Status'])}">${result['Call Status'] || 'N/A'}</span></td>
-                <td><span class="appointment-badge ${appointmentClass}">${result['Appointment Scheduled'] || 'Unknown'}</span></td>
+                <td><span class="appointment-badge ${appointmentClass}">${appointmentStatus}</span></td>
                 <td>₹${result['Call Cost'] || '0'}</td>
                 <td><button onclick="showSummary(${index})" class="view-btn">View</button></td>
                 <td>${result['Disconnect Reason'] || 'N/A'}</td>
@@ -1013,18 +1011,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function getAppointmentClass(appointment) {
         if (!appointment) return 'unknown';
         const apt = appointment.toLowerCase();
-        if (apt.includes('yes') || apt.includes('confirmed')) return 'success';
-        if (apt.includes('no') || apt.includes('declined')) return 'declined';
-        return 'pending';
-    }
-
-    function getStatusClass(status) {
-        if (!status) return 'blue';
-        const s = status.toLowerCase();
-        if (s.includes('confirmed')) return 'green';
-        if (s.includes('rescheduled')) return 'yellow';
-        if (s.includes('no answer') || s.includes('failed')) return 'red';
-        return 'blue';
+        if (apt.includes('confirmed')) return 'success';
+        if (apt.includes('canceled') || apt.includes('cancelled')) return 'declined';
+        if (apt.includes('pending')) return 'pending';
+        return 'unknown';
     }
 
     window.showSummary = function(index) {
@@ -1054,7 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="call-details">
                 <div><strong>Phone:</strong> ${result['Phone Number']}</div>
                 <div><strong>Duration:</strong> ${result['Call Duration (mins)']} minutes</div>
-                <div><strong>Status:</strong> ${result['Call Status']}</div>
+                <div><strong>Appointment Status:</strong> ${result['Appointment Scheduled'] || 'Unknown'}</div>
                 <div><strong>Cost:</strong> ₹${result['Call Cost']}</div>
             </div>
             <div>
@@ -1071,9 +1061,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- INITIALIZATION ---
+    function setMinContactDate() {
+        const contactDateInput = document.getElementById('contactDate');
+        if (contactDateInput) {
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-11
+            const dd = String(today.getDate()).padStart(2, '0');
+            contactDateInput.min = `${yyyy}-${mm}-${dd}`;
+        }
+    }
+
     function init() {
         checkCampaignReady();
-        loadAllCallData(); // Load initially
+        loadAllCallData();
+        setMinContactDate();
         setInterval(loadAllCallData, 60000); // Refresh every minute
     }
     
