@@ -209,6 +209,29 @@
             transition: background-color 0.2s;
         }
         .view-btn:hover { background-color: #dbeafe; }
+        .gemini-btn {
+            background-color: #f0e7ff;
+            color: #6d28d9;
+        }
+        .gemini-btn:hover {
+            background-color: #e5d9ff;
+        }
+        .audio-btn {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        .audio-btn:hover {
+            background-color: #bfdbfe;
+        }
+        .spinner {
+            animation: spin 1s linear infinite;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #fff;
+            border-radius: 50%;
+            width: 1em;
+            height: 1em;
+            display: inline-block;
+        }
     </style>
 </head>
 <body class="text-slate-800" style="background-color: #F0F0F0;">
@@ -266,11 +289,11 @@
     </div>
 
     <!-- Main App Container -->
-    <div id="appContainer">
+    <div id="appContainer" class="hidden">
         <!-- New Top Navigation Bar -->
-        <div class="fixed top-0 left-0 w-full z-50 p-6">
-            <nav class="bg-white text-slate-800 shadow-lg rounded-3xl">
-                <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+        <div class="fixed top-0 left-0 w-full z-50 p-4">
+            <nav class="bg-white text-slate-800 shadow-lg rounded-2xl">
+                <div class="container mx-auto px-6 py-4 flex justify-between items-center">
                     <h1 id="sidebarCompanyName" class="text-xl font-bold">EasyDial AI</h1>
                     <div class="relative">
                         <button id="menuButton" class="flex items-center justify-center h-10 w-10 rounded-full bg-slate-100 hover:bg-slate-200 focus:outline-none transition-colors duration-200">
@@ -288,16 +311,16 @@
         </div>
 
         <!-- Main Content -->
-        <main class="pt-28"> 
+        <main class="pt-28">
             <div id="dashboardView" class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
                 <!-- Header -->
                 <header class="text-center mb-8">
                     <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Dashboard</h1>
                 </header>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <!-- Box 1: Clone Voice -->
-                    <section id="step1" class="step-card bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <section id="step1" class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
                                 <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg></div>
@@ -325,7 +348,7 @@
                     </section>
 
                     <!-- Box 2: Create Campaign -->
-                    <section id="step2" class="step-card bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <section id="step2" class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></div><div class="ml-3"><h2 class="text-lg font-semibold text-slate-900">Create Campaign</h2></div></div>
                              <p class="text-xs text-slate-500 mb-4">Start your calling campaign by uploading a file or adding contacts manually.</p>
@@ -344,7 +367,7 @@
                     </section>
 
                     <!-- Box 3: Call Activity -->
-                    <section class="step-card bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <section class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
                                 <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center">
@@ -381,7 +404,7 @@
                     </section>
                     
                     <!-- Box 4: Report Section -->
-                     <section class="step-card bg-white p-6 sm:p-8 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                     <section class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
                                 <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center">
@@ -531,6 +554,20 @@
                             <label for="contactReason" class="block text-sm font-medium text-slate-700">Reason for Appointment</label>
                             <input type="text" name="contactReason" id="contactReason" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
                         </div>
+                         <div class="md:col-span-2">
+                            <label for="callScript" class="block text-sm font-medium text-slate-700">Call Script</label>
+                            <textarea id="callScript" name="callScript" rows="4" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150" placeholder="Enter your call script here, or generate one with AI."></textarea>
+                             <div class="mt-2 flex items-center space-x-2">
+                                <button type="button" id="generateScriptBtn" class="text-sm font-medium py-2 px-4 rounded-md shadow-sm gemini-btn transition-colors duration-200 flex items-center">
+                                    <span id="generateBtnText">✨ Generate Script</span>
+                                    <span id="generateSpinner" class="hidden spinner ml-2"></span>
+                                </button>
+                                 <button type="button" id="previewAudioBtn" class="text-sm font-medium py-2 px-4 rounded-md shadow-sm audio-btn transition-colors duration-200 flex items-center">
+                                     <span id="audioBtnText">▶️ Preview Audio</span>
+                                     <span id="audioSpinner" class="hidden spinner ml-2"></span>
+                                 </button>
+                            </div>
+                        </div>
                         <div class="md:col-span-2 text-right">
                              <button type="submit" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">Add Contact</button>
                         </div>
@@ -626,6 +663,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- CONFIG ---
     const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact";
+    const apiKey = ""; // Leave blank for Gemini API
 
     // --- ELEMENTS ---
     const authContainer = document.getElementById('authContainer');
@@ -732,12 +770,14 @@ document.addEventListener('DOMContentLoaded', () => {
     manualContactForm.addEventListener('submit', handleAddContact);
     
     // New Nav Menu Logic
-    menuButton.addEventListener('click', () => {
-        dropdownMenu.classList.toggle('hidden');
-    });
+    if (menuButton) {
+        menuButton.addEventListener('click', () => {
+            dropdownMenu.classList.toggle('hidden');
+        });
+    }
 
     window.addEventListener('click', (e) => {
-        if (!menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+        if (menuButton && !menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
             dropdownMenu.classList.add('hidden');
         }
     });
@@ -747,7 +787,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e) e.preventDefault();
         [dashboardView, callLogsView, manualEntryView, reportsView].forEach(v => v.classList.add('hidden'));
         viewToShow.classList.remove('hidden');
-        dropdownMenu.classList.add('hidden');
+        if (dropdownMenu) {
+            dropdownMenu.classList.add('hidden');
+        }
     }
 
     // --- CONTACT MANAGEMENT ---
@@ -767,7 +809,8 @@ document.addEventListener('DOMContentLoaded', () => {
             date: e.target.contactDate.value,
             time: e.target.contactTime.value,
             reason: e.target.contactReason.value,
-            callType: e.target.callType.value
+            callType: e.target.callType.value,
+            callScript: e.target.callScript.value // Include the call script
         };
 
         manualContacts.push(contact);
@@ -829,7 +872,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         Date: (contact.date || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
                         Time: (contact.time || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
                         Reason: (contact.reason || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        CallType: (contact.callType || '').toString().trim().replace(/[\r\n\t=]+/g, '')
+                        CallType: (contact.callType || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
+                        CallScript: (contact.callScript || '').toString().trim().replace(/[\r\n\t=]+/g, '')
                     };
                     return fetch(N8N_MANUAL_CONTACT_URL, {
                         method: 'POST',
@@ -903,6 +947,179 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Live sheets refreshed at:', new Date().toLocaleTimeString());
         }, 30000);
     }
+    
+    // --- GEMINI API FEATURES ---
+    
+    const generateScriptBtn = document.getElementById('generateScriptBtn');
+    const previewAudioBtn = document.getElementById('previewAudioBtn');
+    const callScriptTextarea = document.getElementById('callScript');
+    
+    generateScriptBtn.addEventListener('click', async () => {
+        const callType = document.getElementById('callType').value;
+        const reason = document.getElementById('contactReason').value;
+
+        if (!callType || !reason) {
+            alert('Please select a Call Type and enter a Reason before generating a script.');
+            return;
+        }
+
+        const generateBtnText = document.getElementById('generateBtnText');
+        const generateSpinner = document.getElementById('generateSpinner');
+        
+        generateBtnText.textContent = 'Generating...';
+        generateSpinner.classList.remove('hidden');
+        generateScriptBtn.disabled = true;
+
+        try {
+            const userQuery = `Write a professional, friendly, and concise phone call script (under 60 words). The call type is "${callType}" and the main reason for the call is: "${reason}". Do not use placeholders like [Customer Name] or [Date].`;
+            
+            const systemPrompt = "You are an expert scriptwriter for automated calling systems. Your scripts are natural, direct, and clear.";
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+            
+            if (generatedText) {
+                callScriptTextarea.value = generatedText.trim();
+            } else {
+                callScriptTextarea.value = "Sorry, I couldn't generate a script at this time. Please try again.";
+            }
+        } catch (error) {
+            console.error('Error generating script:', error);
+            callScriptTextarea.value = "An error occurred while generating the script. Check the console for details.";
+        } finally {
+            generateBtnText.textContent = '✨ Generate Script';
+            generateSpinner.classList.add('hidden');
+            generateScriptBtn.disabled = false;
+        }
+    });
+
+    previewAudioBtn.addEventListener('click', async () => {
+        const scriptText = callScriptTextarea.value;
+        if (!scriptText) {
+            alert('Please enter or generate a script to preview.');
+            return;
+        }
+
+        const audioBtnText = document.getElementById('audioBtnText');
+        const audioSpinner = document.getElementById('audioSpinner');
+
+        audioBtnText.textContent = 'Loading...';
+        audioSpinner.classList.remove('hidden');
+        previewAudioBtn.disabled = true;
+
+        try {
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: `Say in a friendly and professional tone: ${scriptText}` }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) throw new Error(`TTS API Error: ${response.status}`);
+            
+            const result = await response.json();
+            const part = result?.candidates?.[0]?.content?.parts?.[0];
+            const audioData = part?.inlineData?.data;
+            const mimeType = part?.inlineData?.mimeType;
+
+            if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+                const pcmData = base64ToArrayBuffer(audioData);
+                const pcm16 = new Int16Array(pcmData);
+                const wavBlob = pcmToWav(pcm16, 1, sampleRate);
+                const audioUrl = URL.createObjectURL(wavBlob);
+                
+                const audio = new Audio(audioUrl);
+                audio.play();
+            } else {
+                throw new Error("Invalid audio data received.");
+            }
+        } catch (error) {
+            console.error('Error generating audio preview:', error);
+            alert("Could not generate audio preview. Please check the console for details.");
+        } finally {
+            audioBtnText.textContent = '▶️ Preview Audio';
+            audioSpinner.classList.add('hidden');
+            previewAudioBtn.disabled = false;
+        }
+    });
+
+    // Helper functions for TTS audio processing
+    function base64ToArrayBuffer(base64) {
+        const binaryString = window.atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    function pcmToWav(pcmData, numChannels, sampleRate) {
+        const format = 1; // PCM
+        const bitDepth = 16;
+        const dataSize = pcmData.length * (bitDepth / 8);
+        const blockAlign = numChannels * (bitDepth / 8);
+        const byteRate = sampleRate * blockAlign;
+        const buffer = new ArrayBuffer(44 + dataSize);
+        const view = new DataView(buffer);
+
+        // RIFF header
+        writeString(view, 0, 'RIFF');
+        view.setUint32(4, 36 + dataSize, true);
+        writeString(view, 8, 'WAVE');
+        // fmt chunk
+        writeString(view, 12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, format, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, byteRate, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        // data chunk
+        writeString(view, 36, 'data');
+        view.setUint32(40, dataSize, true);
+
+        // Write PCM data
+        let offset = 44;
+        for (let i = 0; i < pcmData.length; i++, offset += 2) {
+            view.setInt16(offset, pcmData[i], true);
+        }
+
+        return new Blob([view], { type: 'audio/wav' });
+    }
+
+    function writeString(view, offset, string) {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    }
+
 
     // --- INITIALIZATION ---
     function setMinContactDate() {
@@ -919,7 +1136,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function init() {
         checkCampaignReady();
         setMinContactDate();
-        startAutoRefresh();
+        if (appContainer && !appContainer.classList.contains('hidden')) {
+            startAutoRefresh();
+        }
     }
     
     init();
@@ -927,4 +1146,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
