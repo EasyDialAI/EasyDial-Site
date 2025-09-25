@@ -237,7 +237,7 @@
 <body class="text-slate-800" style="background-color: #F0F0F0;">
     
     <!-- Auth Page -->
-    <div id="authContainer" class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:py-12 overflow-y-auto transition-opacity duration-300 ease-in-out" style="background-color: #F0F0F0;">
+    <div id="authContainer" class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:py-12 overflow-y-auto transition-opacity duration-300 ease-in-out hidden" style="background-color: #F0F0F0;">
         <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-md border border-slate-200">
             <h2 class="text-3xl font-bold text-center text-slate-900 mb-2">Welcome to EasyDial AI</h2>
             <p class="text-center text-slate-500 mb-6">Your intelligent calling solution.</p>
@@ -289,11 +289,11 @@
     </div>
 
     <!-- Main App Container -->
-    <div id="appContainer" class="hidden">
+    <div id="appContainer">
         <!-- New Top Navigation Bar -->
-        <div class="fixed top-0 left-0 w-full z-50 p-4">
-            <nav class="bg-white text-slate-800 shadow-lg rounded-2xl">
-                <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="fixed top-0 left-0 w-full z-50 p-6">
+            <nav class="bg-white text-slate-800 shadow-lg rounded-3xl">
+                <div class="container mx-auto px-6 py-3 flex justify-between items-center">
                     <h1 id="sidebarCompanyName" class="text-xl font-bold">EasyDial AI</h1>
                     <div class="relative">
                         <button id="menuButton" class="flex items-center justify-center h-10 w-10 rounded-full bg-slate-100 hover:bg-slate-200 focus:outline-none transition-colors duration-200">
@@ -311,36 +311,36 @@
         </div>
 
         <!-- Main Content -->
-        <main class="pt-28">
+        <main class="pt-32"> 
             <div id="dashboardView" class="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
                 <!-- Header -->
                 <header class="text-center mb-8">
                     <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-slate-900">Dashboard</h1>
                 </header>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
                     <!-- Box 1: Clone Voice -->
-                    <section id="step1" class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <section id="step1" class="step-card bg-white p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
-                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg></div>
-                                <div class="ml-3">
-                                    <h2 class="text-lg font-semibold text-slate-900">Clone Your Voice</h2>
+                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg></div>
+                                <div class="ml-4">
+                                    <h2 class="text-xl font-semibold text-slate-900">Clone Your Voice</h2>
                                 </div>
                             </div>
-                             <p class="text-xs text-slate-500 mb-4">Create a natural, AI-generated voice for your campaigns.</p>
-                            <div class="mt-4 bg-slate-50 p-3 rounded-lg">
+                             <p class="text-sm text-slate-500 mb-4">Create a natural, AI-generated voice for your campaigns.</p>
+                            <div class="mt-4 bg-slate-50 p-4 rounded-lg">
                                 <div id="cloneInitialState" class="flex flex-col items-center justify-between">
-                                    <div id="voiceStatus" class="flex items-center mb-3 text-sm"><svg id="voiceStatusIcon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span id="voiceStatusText" class="font-medium">Status: Not Cloned</span></div>
-                                    <button id="initiateCloneBtn" class="w-full text-sm flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"><span>Clone Voice</span></button>
+                                    <div id="voiceStatus" class="flex items-center mb-3 text-base"><svg id="voiceStatusIcon" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg><span id="voiceStatusText" class="font-medium">Status: Not Cloned</span></div>
+                                    <button id="initiateCloneBtn" class="w-full text-base flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"><span>Clone Voice</span></button>
                                 </div>
                                 <div id="cloneUploadState" class="hidden space-y-3">
-                                    <p class="text-xs text-slate-600">Upload a clear audio recording (.wav, .mp3) of your voice.</p>
+                                    <p class="text-sm text-slate-600">Upload a clear audio recording (.wav, .mp3) of your voice.</p>
                                     <div class="flex flex-col items-center justify-between">
                                         <div class="w-full mb-3">
-                                            <label for="audio-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-3 py-1.5 text-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg><span id="audioFileName">Upload audio file</span><input id="audio-upload" name="audio-upload" type="file" class="sr-only" accept="audio/*"></label>
+                                            <label for="audio-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-3 py-2 text-base flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg><span id="audioFileName">Upload audio file</span><input id="audio-upload" name="audio-upload" type="file" class="sr-only" accept="audio/*"></label>
                                         </div>
-                                        <button id="startCloningBtn" class="w-full text-sm flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled><span id="startCloningBtnText">Start Cloning</span><div id="startCloningBtnLoader" class="loader hidden ml-2"></div></button>
+                                        <button id="startCloningBtn" class="w-full text-base flex items-center justify-center bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled><span id="startCloningBtnText">Start Cloning</span><div id="startCloningBtnLoader" class="loader hidden ml-2"></div></button>
                                     </div>
                                 </div>
                             </div>
@@ -348,43 +348,43 @@
                     </section>
 
                     <!-- Box 2: Create Campaign -->
-                    <section id="step2" class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <section id="step2" class="step-card bg-white p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
-                            <div class="flex items-center mb-3"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></div><div class="ml-3"><h2 class="text-lg font-semibold text-slate-900">Create Campaign</h2></div></div>
-                             <p class="text-xs text-slate-500 mb-4">Start your calling campaign by uploading a file or adding contacts manually.</p>
-                            <div class="mt-4 flex flex-col items-center justify-between bg-slate-50 p-3 rounded-lg">
+                            <div class="flex items-center mb-3"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></div><div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Create Campaign</h2></div></div>
+                             <p class="text-sm text-slate-500 mb-4">Start your calling campaign by uploading a file or adding contacts manually.</p>
+                            <div class="mt-4 flex flex-col items-center justify-between bg-slate-50 p-4 rounded-lg">
                                 <div class="w-full mb-2">
-                                    <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-3 py-1.5 text-sm flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg><span id="fileName">Upload .xlsx file</span><input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".xlsx, .xls, .csv"></label>
+                                    <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-3 py-2 text-base flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg><span id="fileName">Upload .xlsx file</span><input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".xlsx, .xls, .csv"></label>
                                 </div>
-                                <div class="text-slate-500 my-1 text-xs">or</div>
-                                <button id="manualEntryBtn" class="w-full text-sm bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">Add Manually</button>
+                                <div class="text-slate-500 my-2 text-sm">or</div>
+                                <button id="manualEntryBtn" class="w-full text-base bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">Add Manually</button>
                             </div>
                         </div>
                         <div class="mt-3 text-center">
-                            <button id="createCampaignBtn" class="w-full text-sm bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled>Create Campaign</button>
-                            <p id="campaignReadyText" class="text-xs text-slate-500 mt-1 h-4"></p>
+                            <button id="createCampaignBtn" class="w-full text-base bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled>Create Campaign</button>
+                            <p id="campaignReadyText" class="text-sm text-slate-500 mt-2 h-4"></p>
                         </div>
                     </section>
 
                     <!-- Box 3: Call Activity -->
-                    <section class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                    <section class="step-card bg-white p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
-                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
                                     </svg>
                                 </div>
-                                <div class="ml-3">
-                                    <h2 class="text-lg font-semibold text-slate-900">Call Activity</h2>
+                                <div class="ml-4">
+                                    <h2 class="text-xl font-semibold text-slate-900">Call Activity</h2>
                                 </div>
                             </div>
-                            <p class="text-xs text-slate-500 mb-4">See your campaign performance at a glance.</p>
+                            <p class="text-sm text-slate-500 mb-4">See your campaign performance at a glance.</p>
                             <div class="mt-4 space-y-4">
                                 <div>
                                     <div class="flex justify-between mb-1">
-                                        <span class="text-sm font-medium text-green-700">Confirmed Calls</span>
-                                        <span id="confirmedCallsPercent" class="text-xs font-medium text-green-700">0%</span>
+                                        <span class="text-base font-medium text-green-700">Confirmed Calls</span>
+                                        <span id="confirmedCallsPercent" class="text-sm font-medium text-green-700">0%</span>
                                     </div>
                                     <div class="w-full bg-slate-200 rounded-full h-2">
                                         <div id="confirmedCallsBar" class="progress-bar bg-green-500 h-2 rounded-full" style="width: 0%"></div>
@@ -392,8 +392,8 @@
                                 </div>
                                 <div>
                                     <div class="flex justify-between mb-1">
-                                        <span class="text-sm font-medium text-yellow-700">Canceled Calls</span>
-                                        <span id="rescheduledCallsPercent" class="text-xs font-medium text-yellow-700">0%</span>
+                                        <span class="text-base font-medium text-yellow-700">Canceled Calls</span>
+                                        <span id="rescheduledCallsPercent" class="text-sm font-medium text-yellow-700">0%</span>
                                     </div>
                                     <div class="w-full bg-slate-200 rounded-full h-2">
                                         <div id="rescheduledCallsBar" class="progress-bar bg-yellow-400 h-2 rounded-full" style="width: 0%"></div>
@@ -404,22 +404,22 @@
                     </section>
                     
                     <!-- Box 4: Report Section -->
-                     <section class="step-card bg-white p-10 sm:p-12 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
+                     <section class="step-card bg-white p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
-                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-10 w-10 flex items-center justify-center">
-                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                     </svg>
                                 </div>
-                                <div class="ml-3">
-                                    <h2 class="text-lg font-semibold text-slate-900">Report Section</h2>
+                                <div class="ml-4">
+                                    <h2 class="text-xl font-semibold text-slate-900">Report Section</h2>
                                 </div>
                             </div>
-                            <p class="text-xs text-slate-500 mb-4">Dive deep into call analytics and live data feeds.</p>
+                            <p class="text-sm text-slate-500 mb-4">Dive deep into call analytics and live data feeds.</p>
                         </div>
                          <div class="mt-4 text-center">
-                            <button id="viewReportsBtn" class="w-full text-sm bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">View Reports</button>
+                            <button id="viewReportsBtn" class="w-full text-base bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">View Reports</button>
                         </div>
                     </section>
                 </div>
