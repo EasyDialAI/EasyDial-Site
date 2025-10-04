@@ -1143,6 +1143,29 @@ document.addEventListener('DOMContentLoaded', () => {
     
     init();
 });
+    document.getElementById("callForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const formData = Object.fromEntries(new FormData(e.target).entries());
+
+  try {
+    const response = await fetch("https://n8n.easydialai.com/webhook/manual-contact", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(formData)
+    });
+
+    if (response.ok) {
+      alert("Call start data sent successfully!");
+    } else {
+      alert("Error sending data to n8n.");
+    }
+  } catch (error) {
+    console.error(error);
+    alert("Failed to connect to n8n.");
+  }
+});
 </script>
 </body>
 </html>
+
