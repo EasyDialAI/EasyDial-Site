@@ -1,243 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>EasyDial AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .step-card {
-            transition: all 0.3s ease-in-out;
-            opacity: 1;
-        }
-        .step-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-        }
-        .step-card.disabled {
-            opacity: 0.5;
-            pointer-events: none;
-        }
-        .loader {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3498db;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25em 0.6em;
-            font-size: 0.875rem;
-            font-weight: 500;
-            border-radius: 9999px;
-        }
+        body { font-family: 'Inter', sans-serif; }
+        .step-card { transition: all 0.3s ease-in-out; opacity: 1; }
+        .step-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); }
+        .step-card.disabled { opacity: 0.5; pointer-events: none; }
+        .loader { border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .status-badge { display: inline-flex; align-items: center; padding: 0.25em 0.6em; font-size: 0.875rem; font-weight: 500; border-radius: 9999px; }
         .status-badge.green { background-color: #d1fae5; color: #065f46; }
         .status-badge.yellow { background-color: #fef3c7; color: #92400e; }
         .status-badge.blue { background-color: #dbeafe; color: #1e40af; }
         .status-badge.red { background-color: #fee2e2; color: #991b1b; }
-        #resultsTable tbody tr, #callLogsTable tbody tr, #manualContactsTable tbody tr {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .progress-bar {
-            transition: width 1s ease-out;
-        }
-
-        /* Live Sheets Tab Styles */
-        .call-type-tabs {
-            display: flex;
-            background: #f1f5f9;
-            border-radius: 8px;
-            padding: 4px;
-            margin-bottom: 1rem;
-        }
-        .call-type-tab {
-            flex: 1;
-            padding: 8px 16px;
-            text-align: center;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 0.875rem;
-            transition: all 0.2s ease;
-            color: #64748b;
-        }
-        .call-type-tab.active {
-            background: #3b82f6;
-            color: white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .call-type-tab:hover:not(.active) {
-            background: #e2e8f0;
-            color: #475569;
-        }
-        .sheet-iframe {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            width: 100%;
-            height: 500px;
-        }
-        .live-indicator {
-            display: inline-flex;
-            align-items: center;
-            color: #059669;
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-        }
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #10b981;
-            border-radius: 50%;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        .sheet-container {
-            display: none;
-        }
-        .sheet-container.active {
-            display: block;
-        }
+        #resultsTable tbody tr, #callLogsTable tbody tr, #manualContactsTable tbody tr { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-bar { transition: width 1s ease-out; }
 
         /* Additional styles for modal and transcript */
-        .transcript-modal {
-            position: fixed;
-            z-index: 100;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background-color: #fff;
-            margin: auto;
-            padding: 2rem;
-            border-radius: 0.75rem;
-            width: 90%;
-            max-width: 600px;
-            position: relative;
-            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-        }
-        .close-btn {
-            color: #aaa;
-            position: absolute;
-            top: 1rem;
-            right: 1.5rem;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .transcript-content {
-            background-color: #f8fafc;
-            border: 1px solid #e2e8f0;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-top: 1rem;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            line-height: 1.6;
-        }
-        .call-details {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            margin-top: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #e2e8f0;
-        }
-        .table-container {
-            overflow-x: auto;
-            border: 1px solid #e2e8f0;
-            border-radius: 0.75rem;
-        }
-        .data-table {
-            width: 100%;
-            min-width: 800px;
-            border-collapse: collapse;
-        }
-        .data-table th, .data-table td {
-            padding: 0.75rem 1rem;
-            text-align: left;
-            border-bottom: 1px solid #e2e8f0;
-            font-size: 0.875rem;
-        }
-        .data-table th {
-            background-color: #f8fafc;
-            font-weight: 600;
-            color: #475569;
-        }
-        .data-table tbody tr:last-child td {
-            border-bottom: none;
-        }
+        .transcript-modal { position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+        .modal-content { background-color: #fff; margin: auto; padding: 2rem; border-radius: 0.75rem; width: 90%; max-width: 600px; position: relative; box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); }
+        .close-btn { color: #aaa; position: absolute; top: 1rem; right: 1.5rem; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .transcript-content { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 0.5rem; margin-top: 1rem; max-height: 300px; overflow-y: auto; white-space: pre-wrap; line-height: 1.6; }
+        .call-details { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; }
+        .table-container { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 0.75rem; }
+        .data-table { width: 100%; min-width: 800px; border-collapse: collapse; }
+        .data-table th, .data-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; font-size: 0.875rem; }
+        .data-table th { background-color: #f8fafc; font-weight: 600; color: #475569; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
         .appointment-badge.success { background-color: #d1fae5; color: #065f46; }
         .appointment-badge.declined { background-color: #fee2e2; color: #991b1b; }
         .appointment-badge.pending { background-color: #fef3c7; color: #92400e; }
         .appointment-badge.unknown { background-color: #e5e7eb; color: #4b5563; }
-        .view-btn {
-            background-color: #eff6ff;
-            color: #2563eb;
-            font-weight: 500;
-            padding: 0.25rem 0.75rem;
-            border-radius: 9999px;
-            border: 1px solid #dbeafe;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
+        .view-btn { background-color: #eff6ff; color: #2563eb; font-weight: 500; padding: 0.25rem 0.75rem; border-radius: 9999px; border: 1px solid #dbeafe; cursor: pointer; transition: background-color 0.2s; }
         .view-btn:hover { background-color: #dbeafe; }
-        .gemini-btn {
-            background-color: #f0e7ff;
-            color: #6d28d9;
-        }
-        .gemini-btn:hover {
-            background-color: #e5d9ff;
-        }
-        .audio-btn {
-            background-color: #dbeafe;
-            color: #1e40af;
-        }
-        .audio-btn:hover {
-            background-color: #bfdbfe;
-        }
-        .spinner {
-            animation: spin 1s linear infinite;
-            border: 2px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #fff;
-            border-radius: 50%;
-            width: 1em;
-            height: 1em;
-            display: inline-block;
-        }
+        .gemini-btn { background-color: #f0e7ff; color: #6d28d9; }
+        .gemini-btn:hover { background-color: #e5d9ff; }
+        .audio-btn { background-color: #dbeafe; color: #1e40af; }
+        .audio-btn:hover { background-color: #bfdbfe; }
+        .spinner { animation: spin 1s linear infinite; border: 2px solid rgba(0, 0, 0, 0.1); border-left-color: #fff; border-radius: 50%; width: 1em; height: 1em; display: inline-block; }
+        .notification-error { background-color: #fee2e2; color: #b91c1c; }
+        .notification-info { background-color: #dbeafe; color: #1e40af; }
+        .notification-success { background-color: #dcfce7; color: #166534; }
+        .input-error { border-color: #ef4444 !important; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
     </style>
 </head>
 <body class="text-slate-800" style="background-color: #F0F0F0;">
-    
+
+    <!-- Transcript Modal -->
+    <div id="transcriptModal" class="transcript-modal hidden">
+        <div class="modal-content">
+            <span id="closeTranscriptModalBtn" class="close-btn">&times;</span>
+            <h3 class="text-xl font-semibold text-slate-900 mb-2">Call Transcript</h3>
+            <div id="modalCallDetails" class="call-details">
+                <!-- Details like name, phone will be injected here -->
+            </div>
+            <div id="modalTranscriptContent" class="transcript-content">
+                <!-- Transcript will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification" class="hidden fixed top-5 right-5 z-[101] p-4 rounded-md text-sm shadow-lg transition-transform duration-300 translate-x-full"></div>
+
     <!-- Auth Page -->
-    <div id="authContainer" class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:py-12 overflow-y-auto transition-opacity duration-300 ease-in-out hidden" style="background-color: #F0F0F0;">
+    <div id="authContainer" class="fixed inset-0 z-[100] flex items-start justify-center p-4 sm:py-12 overflow-y-auto transition-opacity duration-300 ease-in-out" style="background-color: #F0F0F0;">
         <div class="w-full max-w-md bg-white p-6 sm:p-8 rounded-2xl shadow-md border border-slate-200">
             <h2 class="text-3xl font-bold text-center text-slate-900 mb-2">Welcome to EasyDial AI</h2>
             <p class="text-center text-slate-500 mb-6">Your intelligent calling solution.</p>
@@ -250,6 +83,10 @@
                 <div id="industryField" class="hidden">
                     <label for="industry" class="block text-sm font-medium text-slate-700">Industry</label>
                     <input type="text" name="industry" id="industry" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                </div>
+                <div id="websiteField" class="hidden">
+                    <label for="website" class="block text-sm font-medium text-slate-700">Website</label>
+                    <input type="url" name="website" id="website" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
                 </div>
                 <div id="companySizeField" class="hidden">
                     <label for="companySize" class="block text-sm font-medium text-slate-700">Company Size</label>
@@ -270,8 +107,9 @@
                     <input type="password" name="password" id="password" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
                 </div>
                 <div>
-                    <button type="submit" id="authSubmitBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-6 transition-colors duration-200">
-                        Log in
+                    <button type="submit" id="authSubmitBtn" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-6 transition-colors duration-200 disabled:bg-slate-400">
+                        <span id="authButtonText">Log in</span>
+                        <div id="authLoader" class="loader hidden"></div>
                     </button>
                 </div>
             </form>
@@ -289,7 +127,7 @@
     </div>
 
     <!-- Main App Container -->
-    <div id="appContainer">
+    <div id="appContainer" class="hidden">
         <!-- New Top Navigation Bar -->
         <div class="fixed top-0 left-0 w-full z-50 p-6">
             <nav class="bg-white text-slate-800 shadow-lg rounded-3xl">
@@ -303,7 +141,8 @@
                         </button>
                         <div id="dropdownMenu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                             <a href="#" id="navDashboard" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors duration-150">Dashboard</a>
-                            <a href="#" id="navCallLogs" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors duration-150">Call Logs</a>
+                            <a href="#" id="navLiveSheet" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors duration-150">Live Sheet</a>
+                            <a href="#" id="logoutBtn" class="block w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors duration-150">Logout</a>
                         </div>
                     </div>
                 </div>
@@ -351,17 +190,13 @@
                     <section id="step2" class="step-card bg-white p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3"><div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg></div><div class="ml-4"><h2 class="text-xl font-semibold text-slate-900">Create Campaign</h2></div></div>
-                             <p class="text-sm text-slate-500 mb-4">Start your calling campaign by uploading a file or adding contacts manually.</p>
+                             <p class="text-sm text-slate-500 mb-4">Start your calling campaign by adding contacts manually.</p>
                             <div class="mt-4 flex flex-col items-center justify-between bg-slate-50 p-4 rounded-lg">
-                                <div class="w-full mb-2">
-                                    <label for="file-upload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 border border-slate-300 px-3 py-2 text-base flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg><span id="fileName">Upload .xlsx file</span><input id="file-upload" name="file-upload" type="file" class="sr-only" accept=".xlsx, .xls, .csv"></label>
-                                </div>
-                                <div class="text-slate-500 my-2 text-sm">or</div>
-                                <button id="manualEntryBtn" class="w-full text-base bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">Add Manually</button>
+                                <button id="manualEntryBtn" class="w-full text-base bg-white text-blue-600 font-semibold py-2 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">Add Contacts Manually</button>
                             </div>
                         </div>
                         <div class="mt-3 text-center">
-                            <button id="createCampaignBtn" class="w-full text-base bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled>Create Campaign</button>
+                            <button id="createCampaignBtn" class="w-full text-base bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled>Start Campaign</button>
                             <p id="campaignReadyText" class="text-sm text-slate-500 mt-2 h-4"></p>
                         </div>
                     </section>
@@ -380,37 +215,20 @@
                                 </div>
                             </div>
                             <p class="text-sm text-slate-500 mb-4">See your campaign performance at a glance.</p>
-                            <div class="mt-4 space-y-4">
-                                <div>
-                                    <div class="flex justify-between mb-1">
-                                        <span class="text-base font-medium text-green-700">Confirmed Calls</span>
-                                        <span id="confirmedCallsPercent" class="text-sm font-medium text-green-700">0%</span>
-                                    </div>
-                                    <div class="w-full bg-slate-200 rounded-full h-2">
-                                        <div id="confirmedCallsBar" class="progress-bar bg-green-500 h-2 rounded-full" style="width: 0%"></div>
-                                    </div>
-                                </div>
-                                <div>
-                                    <div class="flex justify-between mb-1">
-                                        <span class="text-base font-medium text-yellow-700">Canceled Calls</span>
-                                        <span id="rescheduledCallsPercent" class="text-sm font-medium text-yellow-700">0%</span>
-                                    </div>
-                                    <div class="w-full bg-slate-200 rounded-full h-2">
-                                        <div id="rescheduledCallsBar" class="progress-bar bg-yellow-400 h-2 rounded-full" style="width: 0%"></div>
-                                    </div>
-                                </div>
+                            <div id="callActivityStats" class="mt-4 space-y-4">
+                                <!-- Stats will be rendered here by JS -->
                             </div>
                         </div>
                     </section>
-                    
+
                     <!-- Box 4: Report Section -->
                      <section class="step-card bg-white p-8 sm:p-10 rounded-xl shadow-sm border border-slate-200 flex flex-col justify-between">
                         <div>
                             <div class="flex items-center mb-3">
                                 <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
                                      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
+                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                     </svg>
                                 </div>
                                 <div class="ml-4">
                                     <h2 class="text-xl font-semibold text-slate-900">Report Section</h2>
@@ -423,80 +241,82 @@
                         </div>
                     </section>
                 </div>
+            </div>
 
-                <section id="campaignStatus" class="hidden bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 mb-8">
-                    <div class="flex items-center justify-between">
+            <!-- Live Sheet View (New) -->
+            <div id="liveSheetsView" class="hidden container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+                <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <div class="flex items-center justify-between mb-6">
                         <div class="flex items-center">
                             <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                </svg>
                             </div>
                             <div class="ml-4">
-                                <h2 class="text-xl font-semibold text-slate-900">Campaign Active</h2>
-                                <p id="campaignStatusText" class="text-slate-500">Calls in progress...</p>
+                                <h2 class="text-2xl font-semibold text-slate-900">Live Sheet</h2>
+                                <p class="text-slate-500">Live feed of manually added contacts.</p>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-2">
-                             <div class="loader"></div>
-                             <span class="text-sm text-slate-600">Processing...</span>
-                        </div>
+                        <button id="returnToDashboardFromSheetBtn" class="bg-slate-100 text-slate-700 font-semibold py-2 px-5 rounded-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors">Return to Dashboard</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="liveSheetsTable" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone Number</th>
+                                    <th>Call Type</th>
+                                    <th>Reason</th>
+                                </tr>
+                            </thead>
+                            <tbody id="liveSheetsTableBody">
+                                <!-- Rows will be inserted by JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </section>
             </div>
 
-            <!-- Call Logs View -->
-            <div id="callLogsView" class="hidden container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
+
+            <!-- Reports View (Formerly Call Logs) -->
+            <div id="reportsView" class="hidden container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
                 <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
-                    <div class="flex items-center mb-6">
-                        <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
-                             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                    <div class="flex items-center justify-between mb-6">
+                         <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
+                               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                            </div>
+                            <div class="ml-4">
+                                <h2 class="text-2xl font-semibold text-slate-900">Reports</h2>
+                                <p class="text-slate-500">Real-time call attempts and outcomes.</p>
+                            </div>
                         </div>
-                        <div class="ml-4">
-                            <h2 class="text-2xl font-semibold text-slate-900">Live Call Logs</h2>
-                            <p class="text-slate-500">Real-time call attempts and logs by call type.</p>
-                        </div>
-                    </div>
-                    
-                    <!-- Live indicator -->
-                    <div class="live-indicator">
-                        <div class="live-dot"></div>
-                        <span>Live data - Auto-refreshing every 30 seconds</span>
+                         <button id="returnToDashboardFromReportsBtn" class="bg-slate-100 text-slate-700 font-semibold py-2 px-5 rounded-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors">Return to Dashboard</button>
                     </div>
 
-                    <!-- Call Type Tabs for Call Logs -->
-                    <div class="call-type-tabs">
-                        <div class="call-type-tab active" onclick="showCallLogsType('reminder')">📞 Reminder</div>
-                        <div class="call-type-tab" onclick="showCallLogsType('medical')">🏥 Medical</div>
-                        <div class="call-type-tab" onclick="showCallLogsType('realestate')">🏠 Real Estate</div>
-                        <div class="call-type-tab" onclick="showCallLogsType('sales')">💼 Sales</div>
-                    </div>
-
-                    <!-- Sheet Containers for Call Logs (Call Attempts) -->
-                    <div id="logs-reminder-container" class="sheet-container active">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT_ad1-ty6K2w_NbBZWI-_EGtyAId6G_Ywbmw5vKUzzP8rGD_Z3SUAg8TWIJZeHfwI_5fAJad16s03H/pubhtml?gid=0&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-
-                    <div id="logs-medical-container" class="sheet-container">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT_ad1-ty6K2w_NbBZWI-_EGtyAId6G_Ywbmw5vKUzzP8rGD_Z3SUAg8TWIJZeHfwI_5fAJad16s03H/pubhtml?gid=59146364&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-
-                    <div id="logs-realestate-container" class="sheet-container">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT_ad1-ty6K2w_NbBZWI-_EGtyAId6G_Ywbmw5vKUzzP8rGD_Z3SUAg8TWIJZeHfwI_5fAJad16s03H/pubhtml?gid=200949817&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-
-                    <div id="logs-sales-container" class="sheet-container">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT_ad1-ty6K2w_NbBZWI-_EGtyAId6G_Ywbmw5vKUzzP8rGD_Z3SUAg8TWIJZeHfwI_5fAJad16s03H/pubhtml?gid=109435437&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
+                    <div class="table-container">
+                        <table id="callLogsTable" class="data-table">
+                             <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone Number</th>
+                                    <th>Call Type</th>
+                                    <th>Call Start</th>
+                                    <th>Call End</th>
+                                    <th>Call Duration</th>
+                                    <th>Call Status</th>
+                                    <th>Recording</th>
+                                    <th>Transcript</th>
+                                    <th>Call Summary</th>
+                                    <th>Follow-up Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="callLogsTableBody">
+                                <!-- Rows will be inserted by JS -->
+                            </tbody>
+                        </table>
                     </div>
                 </section>
             </div>
@@ -522,58 +342,44 @@
                     <form id="manualContactForm" class="p-4 bg-slate-50 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                         <div>
                             <label for="contactName" class="block text-sm font-medium text-slate-700">Name</label>
-                            <input type="text" name="contactName" id="contactName" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                            <input type="text" name="contactName" id="contactName" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                         </div>
                         <div>
                             <label for="contactCompanyName" class="block text-sm font-medium text-slate-700">Company Name</label>
-                            <input type="text" name="contactCompanyName" id="contactCompanyName" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                            <input type="text" name="contactCompanyName" id="contactCompanyName" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                         </div>
                         <div>
                             <label for="contactPhone" class="block text-sm font-medium text-slate-700">Phone Number</label>
-                            <input type="tel" name="contactPhone" id="contactPhone" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                            <input type="tel" name="contactPhone" id="contactPhone" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                         </div>
                         <div>
                             <label for="contactDate" class="block text-sm font-medium text-slate-700">Appointment Date</label>
-                            <input type="date" name="contactDate" id="contactDate" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                            <input type="date" name="contactDate" id="contactDate" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                         </div>
                         <div>
                             <label for="contactTime" class="block text-sm font-medium text-slate-700">Appointment Time</label>
-                            <input type="time" name="contactTime" id="contactTime" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                            <input type="time" name="contactTime" id="contactTime" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                         </div>
                         <div>
                             <label for="callType" class="block text-sm font-medium text-slate-700">Call Type</label>
-                            <select id="callType" name="callType" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
+                            <select id="callType" name="callType" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                                 <option value="" disabled selected>Select a call type</option>
                                 <option value="Medical">Medical</option>
-                                <option value="Real_Estate">Real Estate</option>
+                                <option value="Real Estate">Real Estate</option>
                                 <option value="Sales">Sales</option>
                                 <option value="Reminder">Reminder</option>
                             </select>
                         </div>
                         <div class="md:col-span-2">
                             <label for="contactReason" class="block text-sm font-medium text-slate-700">Reason for Appointment</label>
-                            <input type="text" name="contactReason" id="contactReason" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150">
-                        </div>
-                         <div class="md:col-span-2">
-                            <label for="callScript" class="block text-sm font-medium text-slate-700">Call Script</label>
-                            <textarea id="callScript" name="callScript" rows="4" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-colors duration-150" placeholder="Enter your call script here, or generate one with AI."></textarea>
-                             <div class="mt-2 flex items-center space-x-2">
-                                <button type="button" id="generateScriptBtn" class="text-sm font-medium py-2 px-4 rounded-md shadow-sm gemini-btn transition-colors duration-200 flex items-center">
-                                    <span id="generateBtnText">✨ Generate Script</span>
-                                    <span id="generateSpinner" class="hidden spinner ml-2"></span>
-                                </button>
-                                 <button type="button" id="previewAudioBtn" class="text-sm font-medium py-2 px-4 rounded-md shadow-sm audio-btn transition-colors duration-200 flex items-center">
-                                     <span id="audioBtnText">▶️ Preview Audio</span>
-                                     <span id="audioSpinner" class="hidden spinner ml-2"></span>
-                                 </button>
-                            </div>
+                            <input type="text" name="contactReason" id="contactReason" required class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500 sm:text-sm transition-all duration-150">
                         </div>
                         <div class="md:col-span-2 text-right">
                              <button type="submit" class="w-full sm:w-auto bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">Add Contact</button>
                         </div>
                     </form>
-                    
-                    <h3 class="text-lg font-semibold text-slate-800 mb-2">Added Contacts</h3>
+
+                    <h3 class="text-lg font-semibold text-slate-800 mb-2">Contacts Ready for Campaign</h3>
                     <div class="overflow-x-auto border rounded-lg">
                         <table class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50">
@@ -593,214 +399,497 @@
                     </div>
                 </section>
             </div>
-            
-            <!-- Reports View -->
-            <div id="reportsView" class="hidden container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-                <section class="bg-white p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200">
-                    <div class="flex items-center justify-between mb-8">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 bg-blue-100 text-blue-600 rounded-full h-12 w-12 flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                            </div>
-                            <div class="ml-4">
-                                <h2 class="text-2xl font-semibold text-slate-900">Live Call Results</h2>
-                                <p class="text-slate-500">Real-time call outcomes by call type.</p>
-                            </div>
-                        </div>
-                         <button id="returnToDashboardFromReportsBtn" class="bg-slate-100 text-slate-700 font-semibold py-2 px-5 rounded-lg hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition-colors">Return to Dashboard</button>
-                    </div>
-                    
-                    <!-- Live indicator -->
-                    <div class="live-indicator">
-                        <div class="live-dot"></div>
-                        <span>Live data - Auto-refreshing every 30 seconds</span>
-                    </div>
-
-                    <!-- Call Type Tabs for Call Results -->
-                    <div class="call-type-tabs">
-                        <div class="call-type-tab active" onclick="showCallResultsType('reminder')">📞 Reminder</div>
-                        <div class="call-type-tab" onclick="showCallResultsType('medical')">🏥 Medical</div>
-                        <div class="call-type-tab" onclick="showCallResultsType('realestate')">🏠 Real Estate</div>
-                        <div class="call-type-tab" onclick="showCallResultsType('sales')">💼 Sales</div>
-                    </div>
-
-                    <!-- Sheet Containers for Call Results -->
-                    <div id="results-reminder-container" class="sheet-container active">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT5JGR2BozZ34asP-72GQA1Rh4ekjV3TvhOV5yO8ewvO-be52zYupZptyN-sO1UvkLuYwJi46BSaMpI/pubhtml?gid=0&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-
-                    <div id="results-medical-container" class="sheet-container">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT5JGR2BozZ34asP-72GQA1Rh4ekjV3TvhOV5yO8ewvO-be52zYupZptyN-sO1UvkLuYwJi46BSaMpI/pubhtml?gid=626821407&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-
-                    <div id="results-realestate-container" class="sheet-container">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT5JGR2BozZ34asP-72GQA1Rh4ekjV3TvhOV5yO8ewvO-be52zYupZptyN-sO1UvkLuYwJi46BSaMpI/pubhtml?gid=921830522&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-
-                    <div id="results-sales-container" class="sheet-container">
-                        <iframe 
-                            src="https://docs.google.com/spreadsheets/d/e/2PACX-1vT5JGR2BozZ34asP-72GQA1Rh4ekjV3TvhOV5yO8ewvO-be52zYupZptyN-sO1UvkLuYwJi46BSaMpI/pubhtml?gid=1455727579&single=true&widget=true&headers=false" 
-                            class="sheet-iframe">
-                        </iframe>
-                    </div>
-                </section>
-            </div>
         </main>
     </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    // --- CONFIG ---
-    const N8N_MANUAL_CONTACT_URL = "https://easydialai.app.n8n.cloud/webhook/manual-contact";
-    const apiKey = ""; // Leave blank for Gemini API
+<script type="module">
+    // Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { 
+        getAuth, 
+        createUserWithEmailAndPassword, 
+        signInWithEmailAndPassword, 
+        onAuthStateChanged, 
+        signOut 
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { 
+        getFirestore, 
+        doc, 
+        setDoc, 
+        getDoc,
+        collection,
+        writeBatch,
+        onSnapshot,
+        Timestamp,
+        addDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // --- ELEMENTS ---
-    const authContainer = document.getElementById('authContainer');
-    const appContainer = document.getElementById('appContainer');
-    const authForm = document.getElementById('authForm');
-    const companyNameInput = document.getElementById('companyName');
-    const companyNameField = document.getElementById('companyNameField');
-    const industryField = document.getElementById('industryField');
-    const companySizeField = document.getElementById('companySizeField');
-    const authSubmitBtn = document.getElementById('authSubmitBtn');
-    const switchToSignupBtn = document.getElementById('switchToSignupBtn');
-    const switchToLoginBtn = document.getElementById('switchToLoginBtn');
-    const loginToggleText = document.getElementById('loginToggleText');
-    const signupToggleText = document.getElementById('signupToggleText');
-    const sidebarCompanyName = document.getElementById('sidebarCompanyName');
-    const navDashboard = document.getElementById('navDashboard');
-    const navCallLogs = document.getElementById('navCallLogs');
-    const dashboardView = document.getElementById('dashboardView');
-    const callLogsView = document.getElementById('callLogsView');
-    const manualEntryView = document.getElementById('manualEntryView');
-    const reportsView = document.getElementById('reportsView');
-    const createCampaignBtn = document.getElementById('createCampaignBtn');
-    const fileUpload = document.getElementById('file-upload');
-    const campaignReadyText = document.getElementById('campaignReadyText');
-    const manualContactForm = document.getElementById('manualContactForm');
-    const manualContactsTableBody = document.getElementById('manualContactsTableBody');
-    const noManualContactsRow = document.getElementById('noManualContactsRow');
-    const fileNameEl = document.getElementById('fileName');
-    const campaignStatus = document.getElementById('campaignStatus');
-    const campaignStatusText = document.getElementById('campaignStatusText');
-    const menuButton = document.getElementById('menuButton');
-    const dropdownMenu = document.getElementById('dropdownMenu');
+    // IMPORTANT: Replace with your Firebase project configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDW2lsqGemfC70lvgizA9mFnviBApuC-sE",
+      authDomain: "easydial-ai-c18f9.firebaseapp.com",
+      projectId: "easydial-ai-c18f9",
+      storageBucket: "easydial-ai-c18f9.appspot.com",
+      messagingSenderId: "45230248545",
+      appId: "1:45230248545:web:0d804ac8102cada86cd020",
+      measurementId: "G-SJR6N5KXBB"
+    };
 
-    // Button elements
-    const manualEntryBtn = document.getElementById('manualEntryBtn');
-    const returnToDashboardBtn = document.getElementById('returnToDashboardBtn');
-    const returnToDashboardFromReportsBtn = document.getElementById('returnToDashboardFromReportsBtn');
-    const viewReportsBtn = document.getElementById('viewReportsBtn');
-    const initiateCloneBtn = document.getElementById('initiateCloneBtn');
-    const startCloningBtn = document.getElementById('startCloningBtn');
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-    // Voice Cloning elements
-    const cloneInitialState = document.getElementById('cloneInitialState');
-    const cloneUploadState = document.getElementById('cloneUploadState');
-    const audioUpload = document.getElementById('audio-upload');
-    const audioFileName = document.getElementById('audioFileName');
-
-    // --- STATE ---
-    let isFileUploaded = false;
-    let manualContacts = [];
+    // --- GLOBAL ELEMENTS & STATE ---
+    const allViews = {};
+    let currentUser = null;
+    let userData = {};
+    let localContacts = []; // For manual entry before starting campaign
+    let unsubscribeContacts = null; // To detach Firestore listener for call logs
+    let unsubscribeLiveSheet = null; // To detach Firestore listener for live sheet
     let campaignActive = false;
 
-    // --- AUTH LOGIC ---
-    let isSignUp = false;
-    switchToSignupBtn.addEventListener('click', () => {
-        isSignUp = true;
-        companyNameField.classList.remove('hidden');
-        industryField.classList.remove('hidden');
-        companySizeField.classList.remove('hidden');
-        authSubmitBtn.textContent = 'Sign up';
-        loginToggleText.classList.add('hidden');
-        signupToggleText.classList.remove('hidden');
-    });
-    switchToLoginBtn.addEventListener('click', () => {
-        isSignUp = false;
-        companyNameField.classList.add('hidden');
-        industryField.classList.add('hidden');
-        companySizeField.classList.add('hidden');
-        authSubmitBtn.textContent = 'Log in';
-        loginToggleText.classList.remove('hidden');
-        signupToggleText.classList.add('hidden');
-    });
-    authForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        if (isSignUp) {
-            const companyName = companyNameInput.value;
-            if (companyName) {
-                sidebarCompanyName.textContent = companyName;
+    // --- INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Cache all view elements
+        allViews.authContainer = document.getElementById('authContainer');
+        allViews.appContainer = document.getElementById('appContainer');
+        allViews.dashboardView = document.getElementById('dashboardView');
+        allViews.reportsView = document.getElementById('reportsView');
+        allViews.manualEntryView = document.getElementById('manualEntryView');
+        allViews.liveSheetsView = document.getElementById('liveSheetsView'); // New view
+
+        // Setup all event listeners
+        setupEventListeners();
+        
+        // Handle auth state
+        onAuthStateChanged(auth, user => {
+            if (user) {
+                currentUser = user;
+                handleUserLogin();
+            } else {
+                currentUser = null;
+                handleUserLogout();
             }
-        }
-        authContainer.classList.add('opacity-0');
-        setTimeout(() => {
-            authContainer.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-            
-            // Start auto-refresh for iframes when app loads
-            startAutoRefresh();
-        }, 300);
+        });
     });
 
-    // --- EVENT LISTENERS ---
-    initiateCloneBtn.addEventListener('click', () => {
-        cloneInitialState.classList.add('hidden');
-        cloneUploadState.classList.remove('hidden');
-    });
-    fileUpload.addEventListener('change', handleFileUpload);
-    createCampaignBtn.addEventListener('click', handleCampaignCreation);
-    navDashboard.addEventListener('click', (e) => showView(e, dashboardView));
-    navCallLogs.addEventListener('click', (e) => showView(e, callLogsView));
-    manualEntryBtn.addEventListener('click', (e) => showView(e, manualEntryView));
-    viewReportsBtn.addEventListener('click', (e) => showView(e, reportsView));
-    returnToDashboardBtn.addEventListener('click', (e) => showView(e, dashboardView));
-    returnToDashboardFromReportsBtn.addEventListener('click', (e) => showView(e, dashboardView));
-    manualContactForm.addEventListener('submit', handleAddContact);
+    // --- AUTHENTICATION ---
+    async function handleUserLogin() {
+        // Explicitly switch top-level containers
+        allViews.authContainer.classList.add('hidden');
+        allViews.appContainer.classList.remove('hidden');
+        
+        showAppView('dashboardView'); // Show the default internal view
+
+        await fetchUserData();
+        updateUIWithUserData();
+        listenForContacts();
+        listenForLiveSheetEntries(); // Start listening for live sheet updates
+    }
+
+    function handleUserLogout() {
+        if (unsubscribeContacts) unsubscribeContacts();
+        if (unsubscribeLiveSheet) unsubscribeLiveSheet(); // Stop listening on logout
+        userData = {};
+        localContacts = [];
+        currentUser = null;
+        
+        // Explicitly switch top-level containers
+        allViews.appContainer.classList.add('hidden');
+        allViews.authContainer.classList.remove('hidden');
+
+        document.getElementById('authForm').reset();
+    }
     
-    // New Nav Menu Logic
-    if (menuButton) {
-        menuButton.addEventListener('click', () => {
-            dropdownMenu.classList.toggle('hidden');
+    // --- DATA HANDLING (FIRESTORE) ---
+    async function fetchUserData() {
+        if (!currentUser) return;
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+            userData = docSnap.data();
+        } else {
+            console.log("No user data found, might be a new user.");
+        }
+    }
+
+    function listenForContacts() {
+        if (unsubscribeContacts) unsubscribeContacts();
+        if (!currentUser) return;
+        
+        const contactsColRef = collection(db, 'users', currentUser.uid, 'contacts');
+        unsubscribeContacts = onSnapshot(contactsColRef, (snapshot) => {
+            const contacts = [];
+            snapshot.forEach(doc => contacts.push({ id: doc.id, ...doc.data() }));
+            renderCallLogs(contacts);
+            updateDashboardStats(contacts);
         });
     }
 
-    window.addEventListener('click', (e) => {
-        if (menuButton && !menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-            dropdownMenu.classList.add('hidden');
+    function listenForLiveSheetEntries() {
+        if (unsubscribeLiveSheet) unsubscribeLiveSheet();
+        if (!currentUser) return;
+        
+        const liveSheetColRef = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
+        unsubscribeLiveSheet = onSnapshot(liveSheetColRef, (snapshot) => {
+            const entries = [];
+            snapshot.forEach(doc => entries.push({ id: doc.id, ...doc.data() }));
+            renderLiveSheet(entries);
+        });
+    }
+
+    // --- UI & VIEW MANAGEMENT ---
+    function showAppView(viewName) {
+        // This function now only handles views inside the app container
+        const appViews = [allViews.dashboardView, allViews.reportsView, allViews.manualEntryView, allViews.liveSheetsView];
+        appViews.forEach(v => v.classList.add('hidden'));
+
+        if (allViews[viewName]) {
+            allViews[viewName].classList.remove('hidden');
         }
-    });
+        document.getElementById('dropdownMenu').classList.add('hidden');
+    }
+
+    function showNotification(message, type = 'info', duration = 3000) {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `fixed top-5 right-5 z-[101] p-4 rounded-md text-sm shadow-lg transition-transform duration-300 translate-x-0 notification-${type}`;
+        setTimeout(() => {
+            notification.classList.replace('translate-x-0', 'translate-x-full');
+        }, duration);
+    }
     
-    // --- VIEW MANAGEMENT ---
-    function showView(e, viewToShow) {
-        if (e) e.preventDefault();
-        [dashboardView, callLogsView, manualEntryView, reportsView].forEach(v => v.classList.add('hidden'));
-        viewToShow.classList.remove('hidden');
-        if (dropdownMenu) {
-            dropdownMenu.classList.add('hidden');
+    function updateUIWithUserData() {
+        document.getElementById('sidebarCompanyName').textContent = userData.companyName || 'EasyDial AI';
+        updateVoiceCloneUI(userData.voiceCloneStatus);
+    }
+
+    function updateVoiceCloneUI(status) {
+        const voiceStatusText = document.getElementById('voiceStatusText');
+        const voiceStatusIcon = document.getElementById('voiceStatusIcon');
+        
+        if (status === 'cloned') {
+            voiceStatusText.textContent = 'Status: Voice Cloned';
+            voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
+            voiceStatusIcon.classList.remove('text-red-500');
+            voiceStatusIcon.classList.add('text-green-500');
+            document.getElementById('initiateCloneBtn').disabled = true;
+            document.getElementById('initiateCloneBtn').textContent = 'Cloned Successfully';
+        } else if (status === 'cloning') {
+             voiceStatusText.textContent = 'Status: Cloning in Progress...';
+             voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+             voiceStatusIcon.classList.remove('text-red-500');
+             voiceStatusIcon.classList.add('text-blue-500');
+             document.getElementById('initiateCloneBtn').disabled = true;
+             document.getElementById('initiateCloneBtn').innerHTML = `<div class="loader inline-block mr-2"></div> In Progress`;
+        } else {
+             voiceStatusText.textContent = 'Status: Not Cloned';
+             voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />`;
+             voiceStatusIcon.classList.remove('text-green-500', 'text-blue-500');
+             voiceStatusIcon.classList.add('text-red-500');
+             document.getElementById('initiateCloneBtn').disabled = false;
         }
     }
 
-    // --- CONTACT MANAGEMENT ---
-    function handleFileUpload(event) {
-        const file = event.target.files[0];
-        isFileUploaded = !!file;
-        fileNameEl.textContent = file ? file.name : 'Upload .xlsx file';
+    function renderManualContacts() {
+        const tableBody = document.getElementById('manualContactsTableBody');
+        tableBody.innerHTML = ''; // Clear existing
+        if (localContacts.length === 0) {
+            tableBody.innerHTML = `<tr id="noManualContactsRow"><td colspan="6" class="text-center text-slate-500 py-6">No contacts added yet.</td></tr>`;
+        } else {
+            localContacts.forEach((contact, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm font-medium text-slate-900">${escapeHtml(contact.name)}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.companyName || 'N/A')}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.phone)}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.date)} at ${escapeHtml(contact.time)}</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.callType)}</td>
+                    <td class="px-6 py-4 text-right text-sm font-medium">
+                        <button data-index="${index}" class="remove-contact-btn text-red-600 hover:text-red-900">Remove</button>
+                    </td>`;
+                tableBody.appendChild(row);
+            });
+        }
         checkCampaignReady();
     }
 
-    function handleAddContact(e) {
+    function renderLiveSheet(entries) {
+        const tableBody = document.getElementById('liveSheetsTableBody');
+        tableBody.innerHTML = '';
+        if (entries.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-slate-500 py-6">No contacts have been added yet.</td></tr>`;
+            return;
+        }
+
+        entries.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+        entries.forEach(entry => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(entry.name)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(entry.phone)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(entry.callType)}</td>
+                <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-[300px]" title="${escapeHtml(entry.reason)}">${escapeHtml(entry.reason)}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function renderCallLogs(contacts) {
+        const tableBody = document.getElementById('callLogsTableBody');
+        tableBody.innerHTML = '';
+        if(contacts.length === 0) {
+            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-slate-500 py-6">No calls have been made yet.</td></tr>`;
+            return;
+        }
+        
+        contacts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+
+        contacts.forEach(contact => {
+            const callStatus = contact.callStatus || 'Pending';
+            let statusBadge = `<span class="status-badge blue">${escapeHtml(callStatus)}</span>`;
+            if (callStatus === 'Completed') statusBadge = `<span class="status-badge green">${escapeHtml(callStatus)}</span>`;
+            if (callStatus === 'Failed' || callStatus === 'No Answer') statusBadge = `<span class="status-badge red">${escapeHtml(callStatus)}</span>`;
+
+            const callDuration = contact.callDuration ? `${contact.callDuration}s` : 'N/A';
+            const callStart = contact.createdAt ? contact.createdAt.toDate().toLocaleString() : 'N/A';
+            const callEnd = contact.callEnd ? contact.callEnd.toDate().toLocaleString() : 'N/A';
+            const followUpDate = contact.followUpDate || 'N/A';
+
+            const recordingButton = contact.recordingUrl ? `<a href="${contact.recordingUrl}" target="_blank" class="audio-btn view-btn text-xs">Play</a>` : 'N/A';
+            const transcriptButton = contact.transcript ? `<button class="gemini-btn view-btn text-xs view-transcript-btn" data-transcript="${escapeHtml(contact.transcript)}" data-name="${escapeHtml(contact.name)}" data-phone="${escapeHtml(contact.phone)}">View</button>` : 'N/A';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(contact.name)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(contact.phone)}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(contact.callType || 'N/A')}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${callStart}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${callEnd}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${callDuration}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${statusBadge}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recordingButton}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${transcriptButton}</td>
+                <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-[200px]" title="${escapeHtml(contact.callSummary || '')}">${escapeHtml(contact.callSummary || 'N/A')}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${followUpDate}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    }
+
+    function updateDashboardStats(contacts) {
+        const total = contacts.length;
+        if (total === 0) {
+            document.getElementById('callActivityStats').innerHTML = `<p class="text-slate-500 text-center">No campaign data available.</p>`;
+            return;
+        }
+
+        const confirmed = contacts.filter(c => c.appointmentStatus === 'Confirmed').length;
+        const canceled = contacts.filter(c => c.appointmentStatus === 'Canceled').length;
+        
+        const confirmedPercent = total > 0 ? Math.round((confirmed / total) * 100) : 0;
+        const canceledPercent = total > 0 ? Math.round((canceled / total) * 100) : 0;
+
+        document.getElementById('callActivityStats').innerHTML = `
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="text-base font-medium text-green-700">Confirmed Appointments</span>
+                    <span class="text-sm font-medium text-green-700">${confirmedPercent}% (${confirmed}/${total})</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2">
+                    <div class="progress-bar bg-green-500 h-2 rounded-full" style="width: ${confirmedPercent}%"></div>
+                </div>
+            </div>
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span class="text-base font-medium text-yellow-700">Canceled Appointments</span>
+                    <span class="text-sm font-medium text-yellow-700">${canceledPercent}% (${canceled}/${total})</span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2">
+                    <div class="progress-bar bg-yellow-400 h-2 rounded-full" style="width: ${canceledPercent}%"></div>
+                </div>
+            </div>
+        `;
+    }
+
+    // --- EVENT LISTENERS SETUP ---
+    function setupEventListeners() {
+        // --- Auth ---
+        document.getElementById('switchToSignupBtn').addEventListener('click', () => toggleAuthMode(true));
+        document.getElementById('switchToLoginBtn').addEventListener('click', () => toggleAuthMode(false));
+        document.getElementById('authForm').addEventListener('submit', handleAuthFormSubmit);
+        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+        
+        // --- Navigation ---
+        document.getElementById('navDashboard').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
+        document.getElementById('navLiveSheet').addEventListener('click', (e) => { e.preventDefault(); showAppView('liveSheetsView'); });
+        document.getElementById('manualEntryBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('manualEntryView'); });
+        document.getElementById('viewReportsBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('reportsView'); });
+        document.getElementById('returnToDashboardBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
+        document.getElementById('returnToDashboardFromReportsBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
+        document.getElementById('returnToDashboardFromSheetBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
+        document.getElementById('menuButton').addEventListener('click', () => document.getElementById('dropdownMenu').classList.toggle('hidden'));
+        window.addEventListener('click', (e) => {
+            const menuButton = document.getElementById('menuButton');
+            const dropdownMenu = document.getElementById('dropdownMenu');
+            if (menuButton && !menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
+                dropdownMenu.classList.add('hidden');
+            }
+        });
+
+        // --- Voice Cloning ---
+        document.getElementById('initiateCloneBtn').addEventListener('click', () => {
+            document.getElementById('cloneInitialState').classList.add('hidden');
+            document.getElementById('cloneUploadState').classList.remove('hidden');
+        });
+        document.getElementById('audio-upload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if(file){
+                document.getElementById('audioFileName').textContent = file.name;
+                document.getElementById('startCloningBtn').disabled = false;
+            }
+        });
+        document.getElementById('startCloningBtn').addEventListener('click', handleVoiceCloning);
+        
+        // --- Campaign & Contacts ---
+        document.getElementById('manualContactForm').addEventListener('submit', handleAddLocalContact);
+        document.getElementById('manualContactsTableBody').addEventListener('click', handleRemoveLocalContact);
+        document.getElementById('createCampaignBtn').addEventListener('click', handleCreateCampaign);
+        document.getElementById('callLogsTableBody').addEventListener('click', handleCallLogActions);
+
+
+        // --- Transcript Modal ---
+        document.getElementById('closeTranscriptModalBtn').addEventListener('click', closeTranscriptModal);
+        document.getElementById('transcriptModal').addEventListener('click', (e) => {
+            if(e.target.id === 'transcriptModal') closeTranscriptModal();
+        });
+
+        // --- Date Picker Min Date ---
+        const contactDateInput = document.getElementById('contactDate');
+        if (contactDateInput) contactDateInput.min = new Date().toISOString().split("T")[0];
+    }
+
+    // --- EVENT HANDLER FUNCTIONS ---
+    function toggleAuthMode(isSignUp) {
+        document.getElementById('companyNameField').classList.toggle('hidden', !isSignUp);
+        document.getElementById('industryField').classList.toggle('hidden', !isSignUp);
+        document.getElementById('websiteField').classList.toggle('hidden', !isSignUp);
+        document.getElementById('companySizeField').classList.toggle('hidden', !isSignUp);
+        document.getElementById('authButtonText').textContent = isSignUp ? 'Sign up' : 'Log in';
+        document.getElementById('loginToggleText').classList.toggle('hidden', isSignUp);
+        document.getElementById('signupToggleText').classList.toggle('hidden', !isSignUp);
+    }
+    
+    async function handleAuthFormSubmit(e) {
+        e.preventDefault();
+        const isSignUp = !document.getElementById('companyNameField').classList.contains('hidden');
+        const email = e.target.email.value;
+        const password = e.target.password.value;
+        
+        const authBtn = document.getElementById('authSubmitBtn');
+        const authBtnText = document.getElementById('authButtonText');
+        const authLoader = document.getElementById('authLoader');
+        authBtn.disabled = true;
+        authBtnText.classList.add('hidden');
+        authLoader.classList.remove('hidden');
+
+        try {
+            if (isSignUp) {
+                const companyName = e.target.companyName.value;
+                if (!companyName) {
+                    showNotification('Company name is required for sign up.', 'error');
+                    return;
+                }
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                // Store additional user info in Firestore
+                await setDoc(doc(db, "users", user.uid), {
+                    email: user.email,
+                    companyName: companyName,
+                    industry: e.target.industry.value,
+                    website: e.target.website.value,
+                    companySize: e.target.companySize.value,
+                    createdAt: Timestamp.now()
+                });
+            } else {
+                await signInWithEmailAndPassword(auth, email, password);
+            }
+            // onAuthStateChanged will handle UI transition
+        } catch (error) {
+            showNotification(error.message, 'error');
+        } finally {
+            authBtn.disabled = false;
+            authBtnText.classList.remove('hidden');
+            authLoader.classList.add('hidden');
+        }
+    }
+
+    function handleCallLogActions(e) {
+        if (e.target.classList.contains('view-transcript-btn')) {
+            const transcript = e.target.dataset.transcript;
+            const name = e.target.dataset.name;
+            const phone = e.target.dataset.phone;
+            openTranscriptModal(transcript, name, phone);
+        }
+    }
+
+    function openTranscriptModal(transcript, name, phone) {
+        document.getElementById('modalTranscriptContent').textContent = transcript;
+        document.getElementById('modalCallDetails').innerHTML = `
+            <div class="text-sm"><span class="font-semibold">Name:</span> ${name}</div>
+            <div class="text-sm"><span class="font-semibold">Phone:</span> ${phone}</div>
+        `;
+        document.getElementById('transcriptModal').classList.remove('hidden');
+    }
+
+    function closeTranscriptModal() {
+        document.getElementById('transcriptModal').classList.add('hidden');
+    }
+    
+    async function handleVoiceCloning() {
+        if (!currentUser) return;
+        
+        const btn = document.getElementById('startCloningBtn');
+        const btnText = document.getElementById('startCloningBtnText');
+        const btnLoader = document.getElementById('startCloningBtnLoader');
+        btn.disabled = true;
+        btnText.textContent = 'Uploading...';
+        btnLoader.classList.remove('hidden');
+
+        // Simulate upload and cloning process
+        await setDoc(doc(db, 'users', currentUser.uid), { voiceCloneStatus: 'cloning' }, { merge: true });
+        updateVoiceCloneUI('cloning');
+
+        setTimeout(async () => {
+            // Simulate cloning completion
+            await setDoc(doc(db, 'users', currentUser.uid), { voiceCloneStatus: 'cloned' }, { merge: true });
+            updateVoiceCloneUI('cloned');
+            document.getElementById('cloneUploadState').classList.add('hidden');
+            document.getElementById('cloneInitialState').classList.remove('hidden');
+            showNotification('Voice cloning successful!', 'success');
+        }, 5000); // 5-second simulation
+    }
+
+    async function addEntryToLiveSheet(contact) {
+        if (!currentUser) return;
+        try {
+            const liveSheetColRef = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
+            await addDoc(liveSheetColRef, {
+                name: contact.name,
+                phone: contact.phone,
+                callType: contact.callType,
+                reason: contact.reason,
+                createdAt: Timestamp.now()
+            });
+        } catch (error) {
+            console.error("Error adding to live sheet:", error);
+            showNotification('Could not update the live sheet.', 'error');
+        }
+    }
+
+    async function handleAddLocalContact(e) {
         e.preventDefault();
         const contact = {
             name: e.target.contactName.value,
@@ -809,363 +898,181 @@ document.addEventListener('DOMContentLoaded', () => {
             date: e.target.contactDate.value,
             time: e.target.contactTime.value,
             reason: e.target.contactReason.value,
-            callType: e.target.callType.value,
-            callScript: e.target.callScript.value // Include the call script
+            callType: e.target.callType.value
         };
-
-        manualContacts.push(contact);
-        renderManualContacts();
-        checkCampaignReady();
-        manualContactForm.reset();
-    }
-
-    function renderManualContacts() {
-        manualContactsTableBody.innerHTML = '';
-        if (manualContacts.length === 0) {
-            manualContactsTableBody.appendChild(noManualContactsRow);
-        } else {
-            manualContacts.forEach((contact, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td class="px-6 py-4 text-sm font-medium text-slate-900">${contact.name}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${contact.companyName || 'N/A'}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${contact.phone}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${contact.date} at ${contact.time}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${contact.callType}</td>
-                    <td class="px-6 py-4 text-right text-sm font-medium"><button data-index="${index}" class="text-red-600 hover:text-red-900 remove-contact-btn">Remove</button></td>`;
-                manualContactsTableBody.appendChild(row);
-            });
-        }
-    }
-    
-    manualContactsTableBody.addEventListener('click', (e) => {
-        if (e.target.classList.contains('remove-contact-btn')) {
-            const index = e.target.dataset.index;
-            manualContacts.splice(index, 1);
-            renderManualContacts();
-            checkCampaignReady();
-        }
-    });
-
-    function checkCampaignReady() {
-        const ready = isFileUploaded || manualContacts.length > 0;
-        createCampaignBtn.disabled = !ready || campaignActive;
-        campaignReadyText.textContent = ready ? (manualContacts.length > 0 ? `${manualContacts.length} contact(s) added.` : 'File uploaded.') : '';
-    }
-
-    // --- CAMPAIGN MANAGEMENT ---
-    async function handleCampaignCreation() {
-        campaignActive = true;
-        createCampaignBtn.disabled = true;
-        createCampaignBtn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Starting Campaign...</span>`;
-        campaignStatus.classList.remove('hidden');
-        const contactsToCall = [...manualContacts];
-
-        if (contactsToCall.length > 0) {
-            campaignStatusText.textContent = `Sending ${contactsToCall.length} contacts to workflow...`;
-
-            try {
-                const sendContactPromises = contactsToCall.map(contact => {
-                    const cleanContact = {
-                        Name: (contact.name || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        CompanyName: (contact.companyName || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        Phone: (contact.phone || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        Date: (contact.date || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        Time: (contact.time || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        Reason: (contact.reason || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        CallType: (contact.callType || '').toString().trim().replace(/[\r\n\t=]+/g, ''),
-                        CallScript: (contact.callScript || '').toString().trim().replace(/[\r\n\t=]+/g, '')
-                    };
-                    return fetch(N8N_MANUAL_CONTACT_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(cleanContact)
-                    });
-                });
-
-                const responses = await Promise.all(sendContactPromises);
-                const allOk = responses.every(res => res.ok);
-
-                if (allOk) {
-                    console.log('All contacts sent to n8n successfully');
-                    campaignStatusText.textContent = `Campaign for ${contactsToCall.length} contacts is now active.`;
-                    
-                    setTimeout(() => {
-                        campaignActive = false;
-                        createCampaignBtn.innerHTML = 'Create Campaign';
-                        campaignStatus.classList.add('hidden');
-                        checkCampaignReady();
-                    }, 10000); 
-
-                } else {
-                    throw new Error('One or more contacts failed to send.');
-                }
-
-            } catch (error) {
-                console.error('Error starting campaign:', error);
-                campaignStatusText.textContent = `Error starting campaign. Please check the console.`;
-                campaignActive = false;
-                createCampaignBtn.disabled = false;
-                createCampaignBtn.innerHTML = 'Create Campaign';
-                return; 
-            }
-
-            manualContacts = [];
-            renderManualContacts();
-            checkCampaignReady();
-            
-        } else {
-            campaignActive = false;
-            createCampaignBtn.disabled = false;
-            createCampaignBtn.innerHTML = 'Create Campaign';
-            campaignStatus.classList.add('hidden');
-        }
-    }
-
-    // --- LIVE SHEETS TAB SWITCHING ---
-    window.showCallLogsType = function(callType) {
-        document.querySelectorAll('#callLogsView .call-type-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('#callLogsView .sheet-container').forEach(container => container.classList.remove('active'));
-        event.target.classList.add('active');
-        document.getElementById(`logs-${callType}-container`).classList.add('active');
-    }
-
-    window.showCallResultsType = function(callType) {
-        document.querySelectorAll('#reportsView .call-type-tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelectorAll('#reportsView .sheet-container').forEach(container => container.classList.remove('active'));
-        event.target.classList.add('active');
-        document.getElementById(`results-${callType}-container`).classList.add('active');
-    }
-
-    // --- AUTO-REFRESH IFRAMES ---
-    function startAutoRefresh() {
-        setInterval(() => {
-            document.querySelectorAll('.sheet-iframe').forEach(iframe => {
-                const currentSrc = iframe.src;
-                iframe.src = '';
-                setTimeout(() => { iframe.src = currentSrc; }, 100);
-            });
-            console.log('Live sheets refreshed at:', new Date().toLocaleTimeString());
-        }, 30000);
-    }
-    
-    // --- GEMINI API FEATURES ---
-    
-    const generateScriptBtn = document.getElementById('generateScriptBtn');
-    const previewAudioBtn = document.getElementById('previewAudioBtn');
-    const callScriptTextarea = document.getElementById('callScript');
-    
-    generateScriptBtn.addEventListener('click', async () => {
-        const callType = document.getElementById('callType').value;
-        const reason = document.getElementById('contactReason').value;
-
-        if (!callType || !reason) {
-            alert('Please select a Call Type and enter a Reason before generating a script.');
-            return;
-        }
-
-        const generateBtnText = document.getElementById('generateBtnText');
-        const generateSpinner = document.getElementById('generateSpinner');
         
-        generateBtnText.textContent = 'Generating...';
-        generateSpinner.classList.remove('hidden');
-        generateScriptBtn.disabled = true;
-
-        try {
-            const userQuery = `Write a professional, friendly, and concise phone call script (under 60 words). The call type is "${callType}" and the main reason for the call is: "${reason}". Do not use placeholders like [Customer Name] or [Date].`;
-            
-            const systemPrompt = "You are an expert scriptwriter for automated calling systems. Your scripts are natural, direct, and clear.";
-
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-            };
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.status}`);
-            }
-
-            const result = await response.json();
-            const generatedText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-            
-            if (generatedText) {
-                callScriptTextarea.value = generatedText.trim();
-            } else {
-                callScriptTextarea.value = "Sorry, I couldn't generate a script at this time. Please try again.";
-            }
-        } catch (error) {
-            console.error('Error generating script:', error);
-            callScriptTextarea.value = "An error occurred while generating the script. Check the console for details.";
-        } finally {
-            generateBtnText.textContent = '✨ Generate Script';
-            generateSpinner.classList.add('hidden');
-            generateScriptBtn.disabled = false;
-        }
-    });
-
-    previewAudioBtn.addEventListener('click', async () => {
-        const scriptText = callScriptTextarea.value;
-        if (!scriptText) {
-            alert('Please enter or generate a script to preview.');
+        if (!contact.name || !contact.phone || !contact.date || !contact.time || !contact.callType) {
+            showNotification('Please fill all required fields.', 'error');
             return;
         }
 
-        const audioBtnText = document.getElementById('audioBtnText');
-        const audioSpinner = document.getElementById('audioSpinner');
+        // Add to live sheet in Firestore immediately
+        await addEntryToLiveSheet(contact);
 
-        audioBtnText.textContent = 'Loading...';
-        audioSpinner.classList.remove('hidden');
-        previewAudioBtn.disabled = true;
+        // Add to local array for campaign creation
+        localContacts.push(contact);
+        renderManualContacts();
+        e.target.reset();
+        document.getElementById('contactDate').min = new Date().toISOString().split("T")[0]; // reset min date
+    }
+
+    function handleRemoveLocalContact(e) {
+        if (e.target.classList.contains('remove-contact-btn')) {
+            const index = parseInt(e.target.dataset.index, 10);
+            localContacts.splice(index, 1);
+            renderManualContacts();
+        }
+    }
+
+    async function sendContactsToN8n(contacts) {
+        const n8nWebhookUrl = 'https://n8n.easydialai.com/webhook/manual-contact';
+
+        const sendPromises = contacts.map(contact => {
+            return fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                // Send the contact data as the payload
+                body: JSON.stringify(contact)
+            });
+        });
+
+        // Wait for all webhook requests to complete
+        const responses = await Promise.all(sendPromises);
+
+        // Check if any of the requests failed
+        const failedResponse = responses.find(res => !res.ok);
+        if (failedResponse) {
+            const errorText = await failedResponse.text().catch(() => 'Unknown n8n error');
+            throw new Error(`n8n webhook failed. Status: ${failedResponse.status}. Response: ${errorText}`);
+        }
+
+        console.log('All contacts sent to n8n successfully.');
+        return true;
+    }
+
+    async function handleCreateCampaign() {
+        if (!currentUser || localContacts.length === 0 || campaignActive) return;
+        
+        campaignActive = true;
+        const btn = document.getElementById('createCampaignBtn');
+        btn.disabled = true;
+        btn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Sending to n8n...</span>`;
 
         try {
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: `Say in a friendly and professional tone: ${scriptText}` }] }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                },
-                model: "gemini-2.5-flash-preview-tts"
-            };
+            // First, send all contacts to the n8n webhook
+            await sendContactsToN8n(localContacts);
+            
+            btn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Saving...</span>`;
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+            // If sending to n8n was successful, write contacts to Firestore
+            const batch = writeBatch(db);
+            localContacts.forEach(contact => {
+                const newContactRef = doc(collection(db, 'users', currentUser.uid, 'contacts'));
+                batch.set(newContactRef, {
+                    ...contact,
+                    callStatus: 'Queued',
+                    appointmentStatus: 'Pending',
+                    createdAt: Timestamp.now()
+                });
             });
-            
-            if (!response.ok) throw new Error(`TTS API Error: ${response.status}`);
-            
-            const result = await response.json();
-            const part = result?.candidates?.[0]?.content?.parts?.[0];
-            const audioData = part?.inlineData?.data;
-            const mimeType = part?.inlineData?.mimeType;
+            await batch.commit();
 
-            if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
-                const pcmData = base64ToArrayBuffer(audioData);
-                const pcm16 = new Int16Array(pcmData);
-                const wavBlob = pcmToWav(pcm16, 1, sampleRate);
-                const audioUrl = URL.createObjectURL(wavBlob);
-                
-                const audio = new Audio(audioUrl);
-                audio.play();
-            } else {
-                throw new Error("Invalid audio data received.");
-            }
+            showNotification(`${localContacts.length} contacts sent to n8n and added to campaign!`, 'success');
+            localContacts = [];
+            renderManualContacts();
+            showAppView('dashboardView');
+            simulateCallProcessing();
+
         } catch (error) {
-            console.error('Error generating audio preview:', error);
-            alert("Could not generate audio preview. Please check the console for details.");
+            console.error("Error creating campaign:", error);
+            showNotification(error.message || 'Failed to create campaign.', 'error');
         } finally {
-            audioBtnText.textContent = '▶️ Preview Audio';
-            audioSpinner.classList.add('hidden');
-            previewAudioBtn.disabled = false;
-        }
-    });
-
-    // Helper functions for TTS audio processing
-    function base64ToArrayBuffer(base64) {
-        const binaryString = window.atob(base64);
-        const len = binaryString.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-        }
-        return bytes.buffer;
-    }
-
-    function pcmToWav(pcmData, numChannels, sampleRate) {
-        const format = 1; // PCM
-        const bitDepth = 16;
-        const dataSize = pcmData.length * (bitDepth / 8);
-        const blockAlign = numChannels * (bitDepth / 8);
-        const byteRate = sampleRate * blockAlign;
-        const buffer = new ArrayBuffer(44 + dataSize);
-        const view = new DataView(buffer);
-
-        // RIFF header
-        writeString(view, 0, 'RIFF');
-        view.setUint32(4, 36 + dataSize, true);
-        writeString(view, 8, 'WAVE');
-        // fmt chunk
-        writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, true);
-        view.setUint16(20, format, true);
-        view.setUint16(22, numChannels, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, byteRate, true);
-        view.setUint16(32, blockAlign, true);
-        view.setUint16(34, bitDepth, true);
-        // data chunk
-        writeString(view, 36, 'data');
-        view.setUint32(40, dataSize, true);
-
-        // Write PCM data
-        let offset = 44;
-        for (let i = 0; i < pcmData.length; i++, offset += 2) {
-            view.setInt16(offset, pcmData[i], true);
-        }
-
-        return new Blob([view], { type: 'audio/wav' });
-    }
-
-    function writeString(view, offset, string) {
-        for (let i = 0; i < string.length; i++) {
-            view.setUint8(offset + i, string.charCodeAt(i));
-        }
-    }
-
-
-    // --- INITIALIZATION ---
-    function setMinContactDate() {
-        const contactDateInput = document.getElementById('contactDate');
-        if (contactDateInput) {
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            contactDateInput.min = `${yyyy}-${mm}-${dd}`;
-        }
-    }
-
-    function init() {
-        checkCampaignReady();
-        setMinContactDate();
-        if (appContainer && !appContainer.classList.contains('hidden')) {
-            startAutoRefresh();
+            campaignActive = false;
+            btn.disabled = false;
+            btn.innerHTML = 'Start Campaign';
+            checkCampaignReady();
         }
     }
     
-    init();
-});
-    document.getElementById("callForm").addEventListener("submit", async function(e) {
-  e.preventDefault();
-
-  const formData = Object.fromEntries(new FormData(e.target).entries());
-
-  try {
-    const response = await fetch("https://n8n.easydialai.com/webhook/manual-contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData)
-    });
-
-    if (response.ok) {
-      alert("Call start data sent successfully!");
-    } else {
-      alert("Error sending data to n8n.");
+    function checkCampaignReady() {
+        const ready = localContacts.length > 0;
+        document.getElementById('createCampaignBtn').disabled = !ready || campaignActive;
+        document.getElementById('campaignReadyText').textContent = ready ? `${localContacts.length} contact(s) ready.` : '';
     }
-  } catch (error) {
-    console.error(error);
-    alert("Failed to connect to n8n.");
-  }
-});
+
+    function escapeHtml(text) {
+        if (!text && text !== 0) return '';
+        return String(text)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+    }
+    
+    // This is a new function to simulate calls being made and results coming in.
+    // In a real app, a backend service would update Firestore.
+    async function simulateCallProcessing() {
+        if (!currentUser) return;
+        const contactsRef = collection(db, 'users', currentUser.uid, 'contacts');
+        const q = onSnapshot(contactsRef, (querySnapshot) => {
+            querySnapshot.forEach(async (docSnap) => {
+                const contact = docSnap.data();
+                if (contact.callStatus === 'Queued') {
+                    // Pick a random outcome after a delay
+                    setTimeout(async () => {
+                        const outcomes = [
+                            { 
+                                callStatus: 'Completed', 
+                                appointmentStatus: 'Confirmed',
+                                callEnd: Timestamp.fromMillis(Date.now() + (Math.random() * 60000)), // End time within a minute
+                                callDuration: Math.floor(Math.random() * 180) + 30, // 30-210 seconds
+                                recordingUrl: `https://example.com/recording_${docSnap.id}.mp3`,
+                                transcript: `Operator: Hello, I'm calling on behalf of ${userData.companyName || 'your provider'}. Is this ${contact.name}?\n${contact.name}: Yes, it is.\nOperator: Great! This is a reminder for your appointment on ${contact.date} at ${contact.time}. We've confirmed your slot.\n${contact.name}: Thank you for the reminder!`,
+                                callSummary: 'Successfully reminded client of their upcoming appointment. Client confirmed attendance.',
+                                followUpDate: 'N/A'
+                            },
+                             { 
+                                callStatus: 'Completed', 
+                                appointmentStatus: 'Canceled',
+                                callEnd: Timestamp.fromMillis(Date.now() + (Math.random() * 45000)),
+                                callDuration: Math.floor(Math.random() * 120) + 20,
+                                recordingUrl: `https://example.com/recording_${docSnap.id}.mp3`,
+                                transcript: `Operator: Hello, this is a reminder for your appointment on ${contact.date}.\n${contact.name}: Actually, I need to cancel that.\nOperator: I understand. I've now canceled your appointment.`,
+                                callSummary: 'Client requested to cancel the appointment. The appointment has been successfully canceled.',
+                                followUpDate: 'N/A'
+                            },
+                            { 
+                                callStatus: 'No Answer', 
+                                appointmentStatus: 'Pending',
+                                callEnd: Timestamp.fromMillis(Date.now() + 15000), // Short call
+                                callDuration: 15,
+                                recordingUrl: null,
+                                transcript: null,
+                                callSummary: 'Call was not answered by the recipient. Voicemail was not available.',
+                                followUpDate: new Date(Date.now() + 86400000).toLocaleDateString() // Follow up tomorrow
+                            },
+                            { 
+                                callStatus: 'Failed', 
+                                appointmentStatus: 'Pending',
+                                callEnd: Timestamp.fromMillis(Date.now() + 5000), // Very short call
+                                callDuration: 5,
+                                recordingUrl: null,
+                                transcript: null,
+                                callSummary: 'The call could not be connected. The number might be invalid or out of service.',
+                                followUpDate: 'N/A'
+                            }
+                        ];
+                        const randomOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
+                        await setDoc(doc(db, 'users', currentUser.uid, 'contacts', docSnap.id), randomOutcome, { merge: true });
+                    }, Math.random() * 10000 + 2000); // Random delay between 2-12 seconds
+                }
+            });
+        });
+    }
+
 </script>
 </body>
 </html>
-
