@@ -48,6 +48,18 @@
         .notification-info { background-color: #dbeafe; color: #1e40af; }
         .notification-success { background-color: #dcfce7; color: #166534; }
         .input-error { border-color: #ef4444 !important; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2); }
+
+        /* tiny modal styles */
+        #easyDialModal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); z-index: 9999; }
+        #easyDialBox { background: white; padding: 20px; border-radius: 8px; width: 720px; max-width: 95%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        #transcriptBox { height: 160px; overflow-y: auto; border: 1px solid #eee; padding: 10px; background:#fafafa; border-radius: 6px; margin: 12px 0; }
+        #callControls { display:flex; gap:8px; margin-top:10px; align-items: center; }
+        #easyDialModal button { background-color: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 500; transition: background-color 0.2s; }
+        #easyDialModal button:hover { background-color: #2563eb; }
+        #endCallBtn { background-color: #ef4444; }
+        #endCallBtn:hover { background-color: #dc2626; }
+        #callTimer { font-family: monospace; font-size: 1.1em; color: #475569; margin-left: auto; }
+
     </style>
 </head>
 <body class="text-slate-800" style="background-color: #F0F0F0;">
@@ -196,7 +208,7 @@
                             </div>
                         </div>
                         <div class="mt-3 text-center">
-                            <button id="createCampaignBtn" class="w-full text-base bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled>Start Campaign</button>
+                            <button id="startAiCallBtn" class="w-full text-base bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed duration-200" disabled>Start AI Call</button>
                             <p id="campaignReadyText" class="text-sm text-slate-500 mt-2 h-4"></p>
                         </div>
                     </section>
@@ -402,6 +414,18 @@
         </main>
     </div>
 
+<div id="easyDialModal">
+  <div id="easyDialBox">
+    <h3 id="easyDialTitle" class="text-xl font-semibold">AI Call</h3>
+    <div id="transcriptBox">Transcript will appear here...</div>
+    <div id="callControls">
+      <button id="endCallBtn">End Call</button>
+      <button id="speakBtn">AI Speak Last</button>
+      <span id="callTimer">00:00</span>
+    </div>
+  </div>
+</div>
+
 <script type="module">
     // Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -551,7 +575,7 @@
         document.getElementById('dropdownMenu').classList.add('hidden');
     }
 
-    function showNotification(message, type = 'info', duration = 3000) {
+    window.showNotification = function(message, type = 'info', duration = 3000) {
         const notification = document.getElementById('notification');
         notification.textContent = message;
         notification.className = `fixed top-5 right-5 z-[101] p-4 rounded-md text-sm shadow-lg transition-transform duration-300 translate-x-0 notification-${type}`;
@@ -756,7 +780,7 @@
         // --- Campaign & Contacts ---
         document.getElementById('manualContactForm').addEventListener('submit', handleAddLocalContact);
         document.getElementById('manualContactsTableBody').addEventListener('click', handleRemoveLocalContact);
-        document.getElementById('createCampaignBtn').addEventListener('click', handleCreateCampaign);
+        document.getElementById('startAiCallBtn').addEventListener('click', handleStartAiCall);
         document.getElementById('callLogsTableBody').addEventListener('click', handleCallLogActions);
 
 
@@ -923,82 +947,33 @@
             renderManualContacts();
         }
     }
-
-    async function sendContactsToN8n(contacts) {
-        const n8nWebhookUrl = 'https://n8n.easydialai.com/webhook/manual-contact';
-
-        const sendPromises = contacts.map(contact => {
-            return fetch(n8nWebhookUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                // Send the contact data as the payload
-                body: JSON.stringify(contact)
-            });
-        });
-
-        // Wait for all webhook requests to complete
-        const responses = await Promise.all(sendPromises);
-
-        // Check if any of the requests failed
-        const failedResponse = responses.find(res => !res.ok);
-        if (failedResponse) {
-            const errorText = await failedResponse.text().catch(() => 'Unknown n8n error');
-            throw new Error(`n8n webhook failed. Status: ${failedResponse.status}. Response: ${errorText}`);
-        }
-
-        console.log('All contacts sent to n8n successfully.');
-        return true;
-    }
-
-    async function handleCreateCampaign() {
-        if (!currentUser || localContacts.length === 0 || campaignActive) return;
-        
-        campaignActive = true;
-        const btn = document.getElementById('createCampaignBtn');
-        btn.disabled = true;
-        btn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Sending to n8n...</span>`;
-
-        try {
-            // First, send all contacts to the n8n webhook
-            await sendContactsToN8n(localContacts);
-            
-            btn.innerHTML = `<div class="loader inline-block mr-2"></div><span>Saving...</span>`;
-
-            // If sending to n8n was successful, write contacts to Firestore
-            const batch = writeBatch(db);
-            localContacts.forEach(contact => {
-                const newContactRef = doc(collection(db, 'users', currentUser.uid, 'contacts'));
-                batch.set(newContactRef, {
-                    ...contact,
-                    callStatus: 'Queued',
-                    appointmentStatus: 'Pending',
-                    createdAt: Timestamp.now()
-                });
-            });
-            await batch.commit();
-
-            showNotification(`${localContacts.length} contacts sent to n8n and added to campaign!`, 'success');
-            localContacts = [];
-            renderManualContacts();
-            showAppView('dashboardView');
-            simulateCallProcessing();
-
-        } catch (error) {
-            console.error("Error creating campaign:", error);
-            showNotification(error.message || 'Failed to create campaign.', 'error');
-        } finally {
-            campaignActive = false;
-            btn.disabled = false;
-            btn.innerHTML = 'Start Campaign';
-            checkCampaignReady();
-        }
-    }
     
+    // This function is now for the AI Call Modal, replacing the batch campaign logic
+    function handleStartAiCall() {
+        if (localContacts.length === 0) {
+            showNotification('Please add at least one contact before starting a call.', 'error');
+            return;
+        }
+
+        // For simplicity, we'll start a call with the first contact in the list.
+        const contactToCall = localContacts[0];
+
+        // The script can be customized or fetched from a database.
+        const script = `This is a call for ${contactToCall.name} from ${contactToCall.companyName} regarding your appointment about ${contactToCall.reason}.`;
+
+        startEasyDialCall({
+            name: contactToCall.name,
+            company: contactToCall.companyName,
+            phone: contactToCall.phone,
+            callType: contactToCall.callType,
+            reason: contactToCall.reason,
+            script: script
+        });
+    }
+
     function checkCampaignReady() {
         const ready = localContacts.length > 0;
-        document.getElementById('createCampaignBtn').disabled = !ready || campaignActive;
+        document.getElementById('startAiCallBtn').disabled = !ready;
         document.getElementById('campaignReadyText').textContent = ready ? `${localContacts.length} contact(s) ready.` : '';
     }
 
@@ -1011,68 +986,121 @@
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
     }
-    
-    // This is a new function to simulate calls being made and results coming in.
-    // In a real app, a backend service would update Firestore.
-    async function simulateCallProcessing() {
-        if (!currentUser) return;
-        const contactsRef = collection(db, 'users', currentUser.uid, 'contacts');
-        const q = onSnapshot(contactsRef, (querySnapshot) => {
-            querySnapshot.forEach(async (docSnap) => {
-                const contact = docSnap.data();
-                if (contact.callStatus === 'Queued') {
-                    // Pick a random outcome after a delay
-                    setTimeout(async () => {
-                        const outcomes = [
-                            { 
-                                callStatus: 'Completed', 
-                                appointmentStatus: 'Confirmed',
-                                callEnd: Timestamp.fromMillis(Date.now() + (Math.random() * 60000)), // End time within a minute
-                                callDuration: Math.floor(Math.random() * 180) + 30, // 30-210 seconds
-                                recordingUrl: `https://example.com/recording_${docSnap.id}.mp3`,
-                                transcript: `Operator: Hello, I'm calling on behalf of ${userData.companyName || 'your provider'}. Is this ${contact.name}?\n${contact.name}: Yes, it is.\nOperator: Great! This is a reminder for your appointment on ${contact.date} at ${contact.time}. We've confirmed your slot.\n${contact.name}: Thank you for the reminder!`,
-                                callSummary: 'Successfully reminded client of their upcoming appointment. Client confirmed attendance.',
-                                followUpDate: 'N/A'
-                            },
-                             { 
-                                callStatus: 'Completed', 
-                                appointmentStatus: 'Canceled',
-                                callEnd: Timestamp.fromMillis(Date.now() + (Math.random() * 45000)),
-                                callDuration: Math.floor(Math.random() * 120) + 20,
-                                recordingUrl: `https://example.com/recording_${docSnap.id}.mp3`,
-                                transcript: `Operator: Hello, this is a reminder for your appointment on ${contact.date}.\n${contact.name}: Actually, I need to cancel that.\nOperator: I understand. I've now canceled your appointment.`,
-                                callSummary: 'Client requested to cancel the appointment. The appointment has been successfully canceled.',
-                                followUpDate: 'N/A'
-                            },
-                            { 
-                                callStatus: 'No Answer', 
-                                appointmentStatus: 'Pending',
-                                callEnd: Timestamp.fromMillis(Date.now() + 15000), // Short call
-                                callDuration: 15,
-                                recordingUrl: null,
-                                transcript: null,
-                                callSummary: 'Call was not answered by the recipient. Voicemail was not available.',
-                                followUpDate: new Date(Date.now() + 86400000).toLocaleDateString() // Follow up tomorrow
-                            },
-                            { 
-                                callStatus: 'Failed', 
-                                appointmentStatus: 'Pending',
-                                callEnd: Timestamp.fromMillis(Date.now() + 5000), // Very short call
-                                callDuration: 5,
-                                recordingUrl: null,
-                                transcript: null,
-                                callSummary: 'The call could not be connected. The number might be invalid or out of service.',
-                                followUpDate: 'N/A'
-                            }
-                        ];
-                        const randomOutcome = outcomes[Math.floor(Math.random() * outcomes.length)];
-                        await setDoc(doc(db, 'users', currentUser.uid, 'contacts', docSnap.id), randomOutcome, { merge: true });
-                    }, Math.random() * 10000 + 2000); // Random delay between 2-12 seconds
-                }
-            });
-        });
-    }
-
 </script>
+
+<!-- This script contains the logic for the AI Call Modal -->
+<script>
+async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
+  try {
+    const backendUrl = "https://www.easydialai.com"; // <-- UPDATED endpoint
+    const startResp = await fetch(`${backendUrl}/session/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, company, phone, callType, reason, script }),
+    });
+
+    if (!startResp.ok) throw new Error(`Failed to start session: ${startResp.statusText}`);
+    const startJson = await startResp.json();
+    const sessionId = startJson.sessionId;
+    console.log("Session started:", sessionId);
+
+    window.showNotification(`Starting real AI call with ${name}...`, 'info');
+    openEasyDialModal(sessionId, backendUrl);
+  } catch (err) {
+    console.error("Error starting call:", err);
+    // A TypeError like "Failed to fetch" is often a sign of a CORS issue or a network problem.
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+        window.showNotification(
+            "Connection Error: Could not reach the backend. This is likely a CORS issue. Please ensure your server at https://www.easydialai.com is running and configured to allow requests from this origin.",
+            'error', 
+            8000 // Show the message for longer
+        );
+    } else {
+        window.showNotification("Could not start AI call. Please check the backend connection and console for details.", 'error');
+    }
+  }
+}
+
+function openEasyDialModal(sessionId, backendUrl) {
+  const modal = document.getElementById('easyDialModal');
+  const transcriptBox = document.getElementById('transcriptBox');
+  const endCallBtn = document.getElementById('endCallBtn');
+  const speakBtn = document.getElementById('speakBtn');
+  const timerEl = document.getElementById('callTimer');
+
+  modal.style.display = 'flex';
+  transcriptBox.innerHTML = '<div><i>Call started...</i></div>';
+  let startedAt = Date.now();
+  let timerInterval = setInterval(() => {
+    const d = Math.floor((Date.now() - startedAt) / 1000);
+    timerEl.textContent =
+      String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
+  }, 1000);
+
+  let mediaRecorder;
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(stream => {
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.start(2000);
+      mediaRecorder.ondataavailable = async e => {
+        if (e.data && e.data.size > 0) {
+          const fd = new FormData();
+          fd.append('audio', e.data, 'chunk.webm');
+          try {
+            const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
+            const j = await r.json();
+            if (j.text) {
+              const userLine = document.createElement('div');
+              userLine.textContent = `You: ${j.text}`;
+              transcriptBox.appendChild(userLine);
+              transcriptBox.scrollTop = transcriptBox.scrollHeight;
+            }
+          } catch (err) {
+            console.error("ASR error:", err);
+          }
+        }
+      };
+    })
+    .catch(e => {
+      alert('Microphone access denied. Please allow mic and try again.');
+      modal.style.display = 'none';
+      clearInterval(timerInterval);
+    });
+
+  speakBtn.onclick = async () => {
+    const lines = transcriptBox.innerText.trim().split('\n');
+    const lastLine = lines[lines.length - 1] || '';
+    if (!lastLine.startsWith('You:')) return;
+    const aiResp = await fetch(`${backendUrl}/tts/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: lastLine.replace('You:', '').trim() }),
+    });
+    const aiData = await aiResp.json();
+    if (aiData.text) {
+      const utterance = new SpeechSynthesisUtterance(aiData.text);
+      speechSynthesis.speak(utterance);
+    }
+  };
+
+  endCallBtn.onclick = async () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    clearInterval(timerInterval);
+    modal.style.display = 'none';
+    try {
+      await fetch(`${backendUrl}/session/end/${sessionId}`, { method: 'POST' });
+      window.showNotification('Call ended successfully.', 'success');
+    } catch (err) {
+      console.error("End call error:", err);
+    }
+  };
+}
+</script>
+
 </body>
 </html>
+
+
