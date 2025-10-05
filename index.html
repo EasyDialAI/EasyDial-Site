@@ -578,6 +578,7 @@
     window.showNotification = function(message, type = 'info', duration = 3000) {
         const notification = document.getElementById('notification');
         notification.textContent = message;
+        // apply class but keep it accessible for styling differences
         notification.className = `fixed top-5 right-5 z-[101] p-4 rounded-md text-sm shadow-lg transition-transform duration-300 translate-x-0 notification-${type}`;
         setTimeout(() => {
             notification.classList.replace('translate-x-0', 'translate-x-full');
@@ -991,32 +992,110 @@
 <!-- This script contains the logic for the AI Call Modal -->
 <script>
 async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
-  try {
-    const backendUrl = "https://www.easydialai.com"; // <-- UPDATED endpoint
-    const startResp = await fetch(`${backendUrl}/session/start`, {
+  // Backend base URL (your site)
+  const backendUrl = "https://www.easydialai.com";
+
+  // helper to parse response body safely (text then try json)
+  async function parseBodySafe(resp) {
+    try {
+      const text = await resp.text();
+      try {
+        return { parsed: JSON.parse(text), raw: text };
+      } catch {
+        return { parsed: null, raw: text };
+      }
+    } catch (e) {
+      return { parsed: null, raw: null };
+    }
+  }
+
+  // Try to start session on /session/start first
+  async function attemptStart(path) {
+    const url = `${backendUrl}${path}`;
+    console.log("Attempting start at:", url);
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, company, phone, callType, reason, script }),
     });
+    return resp;
+  }
 
-    if (!startResp.ok) throw new Error(`Failed to start session: ${startResp.statusText}`);
+  try {
+    let startResp;
+    try {
+      startResp = await attemptStart('/session/start');
+    } catch (err) {
+      // network error (CORS or offline)
+      console.error("Network/fetch error when calling /session/start:", err);
+      if (err instanceof TypeError) {
+        // Very likely a CORS or network issue
+        window.showNotification(
+          "Connection Error: Could not reach the backend. This is likely a CORS issue or network failure. Check the server at https://www.easydialai.com and ensure it allows requests from this origin.",
+          'error',
+          8000
+        );
+        throw err; // rethrow to stop flow
+      } else {
+        throw err;
+      }
+    }
+
+    // If we got a non-OK, show details. Also try fallback to /start if 404/405.
+    if (!startResp.ok) {
+      const info = await parseBodySafe(startResp);
+      console.warn(`/session/start returned status`, startResp.status, info);
+      // fallback if server expects old path
+      if (startResp.status === 404 || startResp.status === 405) {
+        console.log("Attempting fallback to /start due to 404/405");
+        try {
+          const fallbackResp = await attemptStart('/start');
+          if (fallbackResp.ok) {
+            const fallbackJson = await fallbackResp.json();
+            const sessionId = fallbackJson.sessionId;
+            window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
+            openEasyDialModal(sessionId, backendUrl);
+            return;
+          } else {
+            const fbInfo = await parseBodySafe(fallbackResp);
+            console.error("/start fallback also failed:", fallbackResp.status, fbInfo);
+            window.showNotification(`Backend returned ${fallbackResp.status}: ${fbInfo.raw || JSON.stringify(fbInfo.parsed)}`, 'error', 8000);
+            return;
+          }
+        } catch (err) {
+          console.error("Fallback /start network error:", err);
+          if (err instanceof TypeError) {
+            window.showNotification("Connection Error on fallback /start: possible CORS or network issue.", 'error', 8000);
+          } else {
+            window.showNotification("Unexpected error while contacting backend.", 'error', 8000);
+          }
+          return;
+        }
+      } else {
+        // non-404/405 server error — show response
+        window.showNotification(`Start failed (${startResp.status}): ${info.raw || JSON.stringify(info.parsed)}`, 'error', 8000);
+        return;
+      }
+    }
+
+    // success path
     const startJson = await startResp.json();
+    if (!startJson || !startJson.sessionId) {
+      console.error("Unexpected start response shape:", startJson);
+      window.showNotification("Unexpected response from backend when starting session. Check server logs.", 'error', 8000);
+      return;
+    }
+
     const sessionId = startJson.sessionId;
     console.log("Session started:", sessionId);
-
-    window.showNotification(`Starting real AI call with ${name}...`, 'info');
+    window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
     openEasyDialModal(sessionId, backendUrl);
+
   } catch (err) {
-    console.error("Error starting call:", err);
-    // A TypeError like "Failed to fetch" is often a sign of a CORS issue or a network problem.
-    if (err instanceof TypeError && err.message.includes('fetch')) {
-        window.showNotification(
-            "Connection Error: Could not reach the backend. This is likely a CORS issue. Please ensure your server at https://www.easydialai.com is running and configured to allow requests from this origin.",
-            'error', 
-            8000 // Show the message for longer
-        );
-    } else {
-        window.showNotification("Could not start AI call. Please check the backend connection and console for details.", 'error');
+    console.error("startEasyDialCall error:", err);
+    // If we already displayed a CORS/network message above, don't double-message; otherwise show generic
+    if (!(err instanceof TypeError)) {
+      window.showNotification("Could not start AI call. Please check backend connection and console for details.", 'error', 5000);
     }
   }
 }
@@ -1048,6 +1127,10 @@ function openEasyDialModal(sessionId, backendUrl) {
           fd.append('audio', e.data, 'chunk.webm');
           try {
             const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
+            if (!r.ok) {
+              console.error("/asr returned", r.status, await r.text());
+              return;
+            }
             const j = await r.json();
             if (j.text) {
               const userLine = document.createElement('div');
@@ -1071,15 +1154,23 @@ function openEasyDialModal(sessionId, backendUrl) {
     const lines = transcriptBox.innerText.trim().split('\n');
     const lastLine = lines[lines.length - 1] || '';
     if (!lastLine.startsWith('You:')) return;
-    const aiResp = await fetch(`${backendUrl}/tts/${sessionId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: lastLine.replace('You:', '').trim() }),
-    });
-    const aiData = await aiResp.json();
-    if (aiData.text) {
-      const utterance = new SpeechSynthesisUtterance(aiData.text);
-      speechSynthesis.speak(utterance);
+    try {
+      const aiResp = await fetch(`${backendUrl}/tts/${sessionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: lastLine.replace('You:', '').trim() }),
+      });
+      if (!aiResp.ok) {
+        console.error("/tts returned", aiResp.status, await aiResp.text());
+        return;
+      }
+      const aiData = await aiResp.json();
+      if (aiData.text) {
+        const utterance = new SpeechSynthesisUtterance(aiData.text);
+        speechSynthesis.speak(utterance);
+      }
+    } catch(err) {
+      console.error("TTS error:", err);
     }
   };
 
@@ -1095,6 +1186,7 @@ function openEasyDialModal(sessionId, backendUrl) {
       window.showNotification('Call ended successfully.', 'success');
     } catch (err) {
       console.error("End call error:", err);
+      window.showNotification('Call ended but failed to notify backend.', 'error');
     }
   };
 }
@@ -1102,5 +1194,3 @@ function openEasyDialModal(sessionId, backendUrl) {
 
 </body>
 </html>
-
-
