@@ -993,7 +993,7 @@
 <script>
 async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
   // Backend base URL (your site)
-  const backendUrl = "https://www.easydialai.com";
+  const backendUrl = "https://backend.easydialai.com";
 
   // helper to parse response body safely (text then try json)
   async function parseBodySafe(resp) {
@@ -1035,9 +1035,10 @@ async function startEasyDialCall({ name, company, phone, callType, reason, scrip
           'error',
           8000
         );
-        throw err; // rethrow to stop flow
+        return; // Stop execution gracefully
       } else {
-        throw err;
+         window.showNotification(`An unexpected network error occurred: ${err.message}`, 'error');
+         return; // Stop execution gracefully
       }
     }
 
@@ -1093,7 +1094,7 @@ async function startEasyDialCall({ name, company, phone, callType, reason, scrip
 
   } catch (err) {
     console.error("startEasyDialCall error:", err);
-    // If we already displayed a CORS/network message above, don't double-message; otherwise show generic
+    // This outer catch is now mainly for programming errors, as network errors are handled inside.
     if (!(err instanceof TypeError)) {
       window.showNotification("Could not start AI call. Please check backend connection and console for details.", 'error', 5000);
     }
@@ -1194,3 +1195,4 @@ function openEasyDialModal(sessionId, backendUrl) {
 
 </body>
 </html>
+
