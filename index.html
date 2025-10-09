@@ -1153,7 +1153,7 @@ function openEasyDialModal(sessionId, backendUrl) {
     .then(stream => {
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' }); // Explicitly set mimeType
       
-      mediaRecorder.start(2000); // 2-second chunks
+      mediaRecorder.start(4500); // 2-second chunks
 
       mediaRecorder.ondataavailable = async (e) => {
         try {
@@ -1249,3 +1249,4 @@ function openEasyDialModal(sessionId, backendUrl) {
 
 </body>
 </html>
+
