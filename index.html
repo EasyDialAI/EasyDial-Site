@@ -429,20 +429,19 @@
 <script type="module">
     // Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { 
-        getAuth, 
-        createUserWithEmailAndPassword, 
-        signInWithEmailAndPassword, 
-        onAuthStateChanged, 
-        signOut 
+    import {
+        getAuth,
+        createUserWithEmailAndPassword,
+        signInWithEmailAndPassword,
+        onAuthStateChanged,
+        signOut
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { 
-        getFirestore, 
-        doc, 
-        setDoc, 
+    import {
+        getFirestore,
+        doc,
+        setDoc,
         getDoc,
         collection,
-        writeBatch,
         onSnapshot,
         Timestamp,
         addDoc
@@ -485,7 +484,7 @@
 
         // Setup all event listeners
         setupEventListeners();
-        
+
         // Handle auth state
         onAuthStateChanged(auth, user => {
             if (user) {
@@ -503,7 +502,7 @@
         // Explicitly switch top-level containers
         allViews.authContainer.classList.add('hidden');
         allViews.appContainer.classList.remove('hidden');
-        
+
         showAppView('dashboardView'); // Show the default internal view
 
         await fetchUserData();
@@ -518,14 +517,14 @@
         userData = {};
         localContacts = [];
         currentUser = null;
-        
+
         // Explicitly switch top-level containers
         allViews.appContainer.classList.add('hidden');
         allViews.authContainer.classList.remove('hidden');
 
         document.getElementById('authForm').reset();
     }
-    
+
     // --- DATA HANDLING (FIRESTORE) ---
     async function fetchUserData() {
         if (!currentUser) return;
@@ -541,7 +540,7 @@
     function listenForContacts() {
         if (unsubscribeContacts) unsubscribeContacts();
         if (!currentUser) return;
-        
+
         const contactsColRef = collection(db, 'users', currentUser.uid, 'contacts');
         unsubscribeContacts = onSnapshot(contactsColRef, (snapshot) => {
             const contacts = [];
@@ -554,7 +553,7 @@
     function listenForLiveSheetEntries() {
         if (unsubscribeLiveSheet) unsubscribeLiveSheet();
         if (!currentUser) return;
-        
+
         const liveSheetColRef = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
         unsubscribeLiveSheet = onSnapshot(liveSheetColRef, (snapshot) => {
             const entries = [];
@@ -584,7 +583,7 @@
             notification.classList.replace('translate-x-0', 'translate-x-full');
         }, duration);
     }
-    
+
     function updateUIWithUserData() {
         document.getElementById('sidebarCompanyName').textContent = userData.companyName || 'EasyDial AI';
         updateVoiceCloneUI(userData.voiceCloneStatus);
@@ -593,7 +592,7 @@
     function updateVoiceCloneUI(status) {
         const voiceStatusText = document.getElementById('voiceStatusText');
         const voiceStatusIcon = document.getElementById('voiceStatusIcon');
-        
+
         if (status === 'cloned') {
             voiceStatusText.textContent = 'Status: Voice Cloned';
             voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
@@ -669,7 +668,7 @@
             tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-slate-500 py-6">No calls have been made yet.</td></tr>`;
             return;
         }
-        
+
         contacts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
         contacts.forEach(contact => {
@@ -713,7 +712,7 @@
 
         const confirmed = contacts.filter(c => c.appointmentStatus === 'Confirmed').length;
         const canceled = contacts.filter(c => c.appointmentStatus === 'Canceled').length;
-        
+
         const confirmedPercent = total > 0 ? Math.round((confirmed / total) * 100) : 0;
         const canceledPercent = total > 0 ? Math.round((canceled / total) * 100) : 0;
 
@@ -746,7 +745,7 @@
         document.getElementById('switchToLoginBtn').addEventListener('click', () => toggleAuthMode(false));
         document.getElementById('authForm').addEventListener('submit', handleAuthFormSubmit);
         document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
-        
+
         // --- Navigation ---
         document.getElementById('navDashboard').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
         document.getElementById('navLiveSheet').addEventListener('click', (e) => { e.preventDefault(); showAppView('liveSheetsView'); });
@@ -777,7 +776,7 @@
             }
         });
         document.getElementById('startCloningBtn').addEventListener('click', handleVoiceCloning);
-        
+
         // --- Campaign & Contacts ---
         document.getElementById('manualContactForm').addEventListener('submit', handleAddLocalContact);
         document.getElementById('manualContactsTableBody').addEventListener('click', handleRemoveLocalContact);
@@ -806,13 +805,13 @@
         document.getElementById('loginToggleText').classList.toggle('hidden', isSignUp);
         document.getElementById('signupToggleText').classList.toggle('hidden', !isSignUp);
     }
-    
+
     async function handleAuthFormSubmit(e) {
         e.preventDefault();
         const isSignUp = !document.getElementById('companyNameField').classList.contains('hidden');
         const email = e.target.email.value;
         const password = e.target.password.value;
-        
+
         const authBtn = document.getElementById('authSubmitBtn');
         const authBtnText = document.getElementById('authButtonText');
         const authLoader = document.getElementById('authLoader');
@@ -872,10 +871,10 @@
     function closeTranscriptModal() {
         document.getElementById('transcriptModal').classList.add('hidden');
     }
-    
+
     async function handleVoiceCloning() {
         if (!currentUser) return;
-        
+
         const btn = document.getElementById('startCloningBtn');
         const btnText = document.getElementById('startCloningBtnText');
         const btnLoader = document.getElementById('startCloningBtnLoader');
@@ -925,7 +924,7 @@
             reason: e.target.contactReason.value,
             callType: e.target.callType.value
         };
-        
+
         if (!contact.name || !contact.phone || !contact.date || !contact.time || !contact.callType) {
             showNotification('Please fill all required fields.', 'error');
             return;
@@ -948,7 +947,7 @@
             renderManualContacts();
         }
     }
-    
+
     // This function is now for the AI Call Modal, replacing the batch campaign logic
     function handleStartAiCall() {
         if (localContacts.length === 0) {
@@ -959,16 +958,14 @@
         // For simplicity, we'll start a call with the first contact in the list.
         const contactToCall = localContacts[0];
 
-        // The script can be customized or fetched from a database.
         // Use company name and date/time/reason so agent will open with friendly greeting.
-        // If contactToCall.companyName is missing, fallback to generic wording.
         const companyName = contactToCall.companyName ? contactToCall.companyName : '';
         const appointmentDate = contactToCall.date ? contactToCall.date : '';
         const appointmentTime = contactToCall.time ? contactToCall.time : '';
         const reason = contactToCall.reason ? contactToCall.reason : '';
 
-        // Build a warm opening that agent will say first.
-        const script = companyName
+        // Build a warm opening that agent will say first (but prefer backend initial_text/tts_url when available)
+        const clientScript = companyName
             ? `Hi, I'm calling from ${companyName}. This is just a friendly reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`
             : `Hi, I'm calling as a reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`;
 
@@ -978,7 +975,7 @@
             phone: contactToCall.phone,
             callType: contactToCall.callType,
             reason: contactToCall.reason,
-            script: script
+            script: clientScript
         });
     }
 
@@ -998,9 +995,11 @@
           .replace(/'/g, '&#039;');
     }
 
-    /* --------------------- START EASYDIAL CALL FLOW --------------------- */
+    // ----------------
+    // START CALL FLOW
+    // ----------------
     async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
-      // Backend base URL (your site) - keep it in one place for easy editing
+      // Backend base URL (your site)
       const backendUrl = "https://backend.easydialai.com";
 
       // helper to parse response body safely (text then try json)
@@ -1063,9 +1062,8 @@
                 const fallbackJson = await fallbackResp.json();
                 const sessionId = fallbackJson.sessionId;
                 window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
-                // fallback path: we don't have backend-provided tts_url/initial_text here,
-                // so pass the script as the initialText
-                openEasyDialModal(sessionId, backendUrl, null, script);
+                // prefer server initial_text/tts if any
+                openEasyDialModal(sessionId, backendUrl, fallbackJson.initial_text || script, fallbackJson.tts_url || null);
                 return;
               } else {
                 const fbInfo = await parseBodySafe(fallbackResp);
@@ -1101,11 +1099,12 @@
         console.log("Session started:", sessionId);
         window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
 
-        // Prefer backend-provided initial TTS URL and initial text; fallback to script
+        // prefer backend-provided initial_text & tts_url if available
+        const initialText = startJson.initial_text || script || "";
         const initialTtsUrl = startJson.tts_url || null;
-        const initialText = startJson.initial_text || script || '';
 
-        openEasyDialModal(sessionId, backendUrl, initialTtsUrl, initialText);
+        // pass to modal: sessionId + backend + initialText + initialTtsUrl
+        openEasyDialModal(sessionId, backendUrl, initialText, initialTtsUrl);
 
       } catch (err) {
         console.error("startEasyDialCall error:", err);
@@ -1116,8 +1115,8 @@
       }
     }
 
-    /* --------------------- OPEN EASYDIAL MODAL (plays initial speech then starts mic) --------------------- */
-    function openEasyDialModal(sessionId, backendUrl, initialTtsUrl = null, initialText = '') {
+    // openEasyDialModal now accepts optional initialTtsUrl
+    function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTtsUrl = null) {
       const modal = document.getElementById('easyDialModal');
       const transcriptBox = document.getElementById('transcriptBox');
       const endCallBtn = document.getElementById('endCallBtn');
@@ -1138,19 +1137,48 @@
           String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
       }, 1000);
 
-      // Play TTS via backend /tts endpoint or by fetching a tts_url.
-      async function playTTSFromText(text) {
+      // Play TTS via backend /tts endpoint OR play a public tts_url returned by backend
+      async function playTTSFromTextOrUrl(text, ttsUrl = null) {
+          if (ttsUrl) {
+              // Play provided URL directly (backend saved mp3 and returned recordings URL)
+              return new Promise((resolve) => {
+                  try {
+                      const audio = new Audio(ttsUrl);
+                      audio.onended = () => resolve();
+                      audio.onerror = (e) => {
+                          console.error("Error playing ttsUrl, falling back to speechSynthesis", e);
+                          const utterance = new SpeechSynthesisUtterance(text || '');
+                          utterance.onend = () => resolve();
+                          speechSynthesis.speak(utterance);
+                      };
+                      audio.play().catch(err => {
+                          console.error("Audio play failed for ttsUrl:", err);
+                          const utterance = new SpeechSynthesisUtterance(text || '');
+                          utterance.onend = () => resolve();
+                          speechSynthesis.speak(utterance);
+                      });
+                  } catch (err) {
+                      console.error("Exception playing ttsUrl:", err);
+                      const utterance = new SpeechSynthesisUtterance(text || '');
+                      return new Promise(resolve => {
+                          utterance.onend = () => resolve();
+                          speechSynthesis.speak(utterance);
+                      });
+                  }
+              });
+          }
+
+          // fallback: call backend /tts endpoint with { text }
           if (!text) return;
           try {
               const ttsResp = await fetch(`${backendUrl}/tts`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ text: text }),
+                  body: JSON.stringify({ text }),
               });
               if (!ttsResp.ok) {
-                  const errText = await ttsResp.text();
-                  console.error("/tts endpoint failed:", ttsResp.status, errText);
-                  // Fallback to browser TTS if the backend fails (and resolve after utterance ends)
+                  console.error("/tts endpoint failed:", ttsResp.status, await ttsResp.text().catch(()=>'<no body>'));
+                  // fallback to browser TTS
                   return new Promise(resolve => {
                       const utterance = new SpeechSynthesisUtterance(text);
                       utterance.onend = () => resolve();
@@ -1160,7 +1188,6 @@
               const audioBlob = await ttsResp.blob();
               const audioUrl = URL.createObjectURL(audioBlob);
               const audio = new Audio(audioUrl);
-              // ensure we return a promise that resolves when audio ended
               return new Promise((resolve) => {
                   audio.onended = () => {
                       URL.revokeObjectURL(audioUrl);
@@ -1168,7 +1195,6 @@
                   };
                   audio.onerror = (e) => {
                       console.error("Playback error for audio element, falling back to speechSynthesis", e);
-                      // fallback to speechSynthesis then resolve when finished
                       const utterance = new SpeechSynthesisUtterance(text);
                       utterance.onend = () => resolve();
                       speechSynthesis.speak(utterance);
@@ -1182,41 +1208,12 @@
               });
           } catch (err) {
               console.error("Error fetching or playing TTS audio:", err);
-              // Fallback to browser TTS on network error and wait for it to finish
               return new Promise(resolve => {
                   const utterance = new SpeechSynthesisUtterance(text);
                   utterance.onend = () => resolve();
                   speechSynthesis.speak(utterance);
               });
           }
-      }
-
-      // Play a tts_url if present, otherwise call playTTSFromText
-      async function playTTSfromUrlOrText(ttsUrl, text) {
-        if (ttsUrl) {
-          try {
-            const resp = await fetch(ttsUrl);
-            if (resp.ok) {
-              const blob = await resp.blob();
-              const url = URL.createObjectURL(blob);
-              const audio = new Audio(url);
-              return new Promise((resolve) => {
-                audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-                audio.onerror = async (e) => { console.warn("Initial TTS play error, fallback:", e); await playTTSFromText(text); resolve(); };
-                audio.play().catch(async (e) => { console.warn("Audio play blocked, fallback to /tts or speechSynthesis", e); await playTTSFromText(text); resolve(); });
-              });
-            } else {
-              console.warn("Initial TTS fetch failed:", resp.status);
-              // fallback to backend /tts or browser
-              return await playTTSFromText(text);
-            }
-          } catch (err) {
-            console.error("Error fetching initial TTS URL:", err);
-            return await playTTSFromText(text);
-          }
-        } else {
-          return await playTTSFromText(text);
-        }
       }
 
       // Start microphone recording after TTS playback finishes (so agent speaks first)
@@ -1239,7 +1236,12 @@
         // final fallback: no mimeType
         const options = mimeType ? { mimeType } : undefined;
 
-        mediaRecorder = new MediaRecorder(streamRef, options);
+        try {
+          mediaRecorder = new MediaRecorder(streamRef, options);
+        } catch (err) {
+          // fallback to default without options
+          mediaRecorder = new MediaRecorder(streamRef);
+        }
 
         // 2-second chunks (you can increase to reduce number of uploads)
         mediaRecorder.start(2000);
@@ -1281,33 +1283,44 @@
               return;
             }
 
-            // parse JSON response (your backend should return { text: "...", ai_text: "..." } )
+            // parse JSON response (your backend may return either { text, ai_text } or ai_text may be an object)
             const j = await r.json();
 
-            // Append user text only when it changed (avoid duplicates)
-            if (j.text && j.text.trim()) {
-              const normalized = j.text.trim();
-              if (normalized !== lastUserText) {
-                lastUserText = normalized;
+            // j could be { text: "...", ai_text: "..."} OR { text: "...", ai_text: { text: "...", tts_url: "..." } }
+            let userText = '';
+            if (j.text && j.text.trim()) userText = j.text.trim();
+
+            if (userText) {
+              if (userText !== lastUserText) {
+                lastUserText = userText;
                 const userLine = document.createElement('div');
-                userLine.textContent = `You: ${normalized}`;
+                userLine.textContent = `You: ${userText}`;
                 transcriptBox.appendChild(userLine);
                 transcriptBox.scrollTop = transcriptBox.scrollHeight;
               }
             }
 
-            // If backend already returned AI reply, append & play
-            if (j.ai_text && j.ai_text.trim()) {
-              const aiNormalized = j.ai_text.trim();
-              // Avoid repeating same agent reply multiple times
-              if (aiNormalized !== lastAiReply) {
-                lastAiReply = aiNormalized;
+            // Handle AI reply
+            if (j.ai_text) {
+              // ai_text might be string or object
+              let aiText = '';
+              let ttsUrl = null;
+              if (typeof j.ai_text === 'string') {
+                aiText = j.ai_text.trim();
+              } else if (typeof j.ai_text === 'object' && j.ai_text !== null) {
+                aiText = (j.ai_text.text || j.ai_text?.message || '').trim();
+                ttsUrl = j.ai_text.tts_url || j.ai_text.ttsUrl || null;
+              }
+
+              if (aiText && aiText !== lastAiReply) {
+                lastAiReply = aiText;
                 const botLine = document.createElement('div');
-                botLine.textContent = `Agent: ${aiNormalized}`;
+                botLine.textContent = `Agent: ${aiText}`;
                 transcriptBox.appendChild(botLine);
                 transcriptBox.scrollTop = transcriptBox.scrollHeight;
-                // store and auto-play TTS (your /tts endpoint expected to accept { text } and return audio blob)
-                await playTTSFromText(aiNormalized);
+
+                // Play audio: prefer backend-provided ttsUrl when present (faster and preserves voice)
+                await playTTSFromTextOrUrl(aiText, ttsUrl);
               }
             }
 
@@ -1325,18 +1338,18 @@
         };
       }
 
-      // if there's an initialText, play it first (agent speaks first)
+      // if there's an initialScript or initialTtsUrl, play it first (agent speaks first)
       (async () => {
         try {
-          if (initialText && initialText.trim()) {
-            // Append the initial script/text to transcript so user sees agent opening line
+          if ((initialTtsUrl && initialTtsUrl.trim()) || (initialScript && initialScript.trim())) {
+            // show opening in transcript
             const opening = document.createElement('div');
-            opening.textContent = `Agent: ${initialText}`;
+            opening.textContent = `Agent: ${initialScript || ''}`; // initialScript displays if returned by backend or client-generated
             transcriptBox.appendChild(opening);
             transcriptBox.scrollTop = transcriptBox.scrollHeight;
 
-            // Play tts_url if provided else call backend /tts then wait for playback to finish
-            await playTTSfromUrlOrText(initialTtsUrl, initialText);
+            // Prefer playing returned tts_url directly if backend sent it
+            await playTTSFromTextOrUrl(initialScript, initialTtsUrl);
             // small pause to ensure smooth handover
             await new Promise(res => setTimeout(res, 200));
           }
@@ -1351,7 +1364,7 @@
       speakBtn.onclick = async () => {
         // Re-play the last stored AI reply
         if(lastAiReply) {
-            await (async () => { try { await playTTSFromText(lastAiReply); } catch(e){console.error(e)} })();
+            await (async () => { try { await playTTSFromTextOrUrl(lastAiReply, null); } catch(e){console.error(e)} })();
         }
       };
 
@@ -1378,11 +1391,7 @@
         }
       };
     }
-    /* --------------------- END EASYDIAL FLOW --------------------- */
-
 </script>
-
 
 </body>
 </html>
-
