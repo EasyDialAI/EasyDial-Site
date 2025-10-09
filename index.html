@@ -997,356 +997,392 @@
           .replace(/"/g, '&quot;')
           .replace(/'/g, '&#039;');
     }
-</script>
 
-<!-- This script contains the logic for the AI Call Modal -->
-<script>
-async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
-  // Backend base URL (your site) - keep it in one place for easy editing
-  const backendUrl = "https://backend.easydialai.com";
+    /* --------------------- START EASYDIAL CALL FLOW --------------------- */
+    async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
+      // Backend base URL (your site) - keep it in one place for easy editing
+      const backendUrl = "https://backend.easydialai.com";
 
-  // helper to parse response body safely (text then try json)
-  async function parseBodySafe(resp) {
-    try {
-      const text = await resp.text();
-      try {
-        return { parsed: JSON.parse(text), raw: text };
-      } catch {
-        return { parsed: null, raw: text };
-      }
-    } catch (e) {
-      return { parsed: null, raw: null };
-    }
-  }
-
-  // Try to start session on /session/start first
-  async function attemptStart(path) {
-    const url = `${backendUrl}${path}`;
-    console.log("Attempting start at:", url);
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, company, phone, callType, reason, script }),
-    });
-    return resp;
-  }
-
-  try {
-    let startResp;
-    try {
-      startResp = await attemptStart('/session/start');
-    } catch (err) {
-      // network error (CORS or offline)
-      console.error("Network/fetch error when calling /session/start:", err);
-      if (err instanceof TypeError) {
-        // Very likely a CORS or network issue
-        window.showNotification(
-          "Connection Error: Could not reach the backend. This is likely a CORS issue or network failure. Check the server at https://backend.easydialai.com and ensure it allows requests from this origin.",
-          'error',
-          8000
-        );
-        return; // Stop execution gracefully
-      } else {
-         window.showNotification(`An unexpected network error occurred: ${err.message}`, 'error');
-         return; // Stop execution gracefully
-      }
-    }
-
-    // If we got a non-OK, show details. Also try fallback to /start if 404/405.
-    if (!startResp.ok) {
-      const info = await parseBodySafe(startResp);
-      console.warn(`/session/start returned status`, startResp.status, info);
-      // fallback if server expects old path
-      if (startResp.status === 404 || startResp.status === 405) {
-        console.log("Attempting fallback to /start due to 404/405");
+      // helper to parse response body safely (text then try json)
+      async function parseBodySafe(resp) {
         try {
-          const fallbackResp = await attemptStart('/start');
-          if (fallbackResp.ok) {
-            const fallbackJson = await fallbackResp.json();
-            const sessionId = fallbackJson.sessionId;
-            window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
-            openEasyDialModal(sessionId, backendUrl, script);
-            return;
-          } else {
-            const fbInfo = await parseBodySafe(fallbackResp);
-            console.error("/start fallback also failed:", fallbackResp.status, fbInfo);
-            window.showNotification(`Backend returned ${fallbackResp.status}: ${fbInfo.raw || JSON.stringify(fbInfo.parsed)}`, 'error', 8000);
-            return;
+          const text = await resp.text();
+          try {
+            return { parsed: JSON.parse(text), raw: text };
+          } catch {
+            return { parsed: null, raw: text };
           }
+        } catch (e) {
+          return { parsed: null, raw: null };
+        }
+      }
+
+      // Try to start session on /session/start first
+      async function attemptStart(path) {
+        const url = `${backendUrl}${path}`;
+        console.log("Attempting start at:", url);
+        const resp = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, company, phone, callType, reason, script }),
+        });
+        return resp;
+      }
+
+      try {
+        let startResp;
+        try {
+          startResp = await attemptStart('/session/start');
         } catch (err) {
-          console.error("Fallback /start network error:", err);
+          // network error (CORS or offline)
+          console.error("Network/fetch error when calling /session/start:", err);
           if (err instanceof TypeError) {
-            window.showNotification("Connection Error on fallback /start: possible CORS or network issue.", 'error', 8000);
+            // Very likely a CORS or network issue
+            window.showNotification(
+              "Connection Error: Could not reach the backend. This is likely a CORS issue or network failure. Check the server at https://backend.easydialai.com and ensure it allows requests from this origin.",
+              'error',
+              8000
+            );
+            return; // Stop execution gracefully
           } else {
-            window.showNotification("Unexpected error while contacting backend.", 'error', 8000);
+             window.showNotification(`An unexpected network error occurred: ${err.message}`, 'error');
+             return; // Stop execution gracefully
           }
+        }
+
+        // If we got a non-OK, show details. Also try fallback to /start if 404/405.
+        if (!startResp.ok) {
+          const info = await parseBodySafe(startResp);
+          console.warn(`/session/start returned status`, startResp.status, info);
+          // fallback if server expects old path
+          if (startResp.status === 404 || startResp.status === 405) {
+            console.log("Attempting fallback to /start due to 404/405");
+            try {
+              const fallbackResp = await attemptStart('/start');
+              if (fallbackResp.ok) {
+                const fallbackJson = await fallbackResp.json();
+                const sessionId = fallbackJson.sessionId;
+                window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
+                // fallback path: we don't have backend-provided tts_url/initial_text here,
+                // so pass the script as the initialText
+                openEasyDialModal(sessionId, backendUrl, null, script);
+                return;
+              } else {
+                const fbInfo = await parseBodySafe(fallbackResp);
+                console.error("/start fallback also failed:", fallbackResp.status, fbInfo);
+                window.showNotification(`Backend returned ${fallbackResp.status}: ${fbInfo.raw || JSON.stringify(fbInfo.parsed)}`, 'error', 8000);
+                return;
+              }
+            } catch (err) {
+              console.error("Fallback /start network error:", err);
+              if (err instanceof TypeError) {
+                window.showNotification("Connection Error on fallback /start: possible CORS or network issue.", 'error', 8000);
+              } else {
+                window.showNotification("Unexpected error while contacting backend.", 'error', 8000);
+              }
+              return;
+            }
+          } else {
+            // non-404/405 server error — show response
+            window.showNotification(`Start failed (${startResp.status}): ${info.raw || JSON.stringify(info.parsed)}`, 'error', 8000);
+            return;
+          }
+        }
+
+        // success path
+        const startJson = await startResp.json();
+        if (!startJson || !startJson.sessionId) {
+          console.error("Unexpected start response shape:", startJson);
+          window.showNotification("Unexpected response from backend when starting session. Check server logs.", 'error', 8000);
           return;
         }
-      } else {
-        // non-404/405 server error — show response
-        window.showNotification(`Start failed (${startResp.status}): ${info.raw || JSON.stringify(info.parsed)}`, 'error', 8000);
-        return;
+
+        const sessionId = startJson.sessionId;
+        console.log("Session started:", sessionId);
+        window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
+
+        // Prefer backend-provided initial TTS URL and initial text; fallback to script
+        const initialTtsUrl = startJson.tts_url || null;
+        const initialText = startJson.initial_text || script || '';
+
+        openEasyDialModal(sessionId, backendUrl, initialTtsUrl, initialText);
+
+      } catch (err) {
+        console.error("startEasyDialCall error:", err);
+        // This outer catch is now mainly for programming errors, as network errors are handled inside.
+        if (!(err instanceof TypeError)) {
+          window.showNotification("Could not start AI call. Please check backend connection and console for details.", 'error', 5000);
+        }
       }
     }
 
-    // success path
-    const startJson = await startResp.json();
-    if (!startJson || !startJson.sessionId) {
-      console.error("Unexpected start response shape:", startJson);
-      window.showNotification("Unexpected response from backend when starting session. Check server logs.", 'error', 8000);
-      return;
-    }
+    /* --------------------- OPEN EASYDIAL MODAL (plays initial speech then starts mic) --------------------- */
+    function openEasyDialModal(sessionId, backendUrl, initialTtsUrl = null, initialText = '') {
+      const modal = document.getElementById('easyDialModal');
+      const transcriptBox = document.getElementById('transcriptBox');
+      const endCallBtn = document.getElementById('endCallBtn');
+      const speakBtn = document.getElementById('speakBtn');
+      const timerEl = document.getElementById('callTimer');
 
-    const sessionId = startJson.sessionId;
-    console.log("Session started:", sessionId);
-    window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
+      let lastAiReply = ''; // Store the last AI reply text
+      let lastUserText = ''; // De-dup user transcript entries
+      let mediaRecorder;
+      let streamRef;
 
-    // pass script so openEasyDialModal can play it before mic starts
-    openEasyDialModal(sessionId, backendUrl, script);
+      modal.style.display = 'flex';
+      transcriptBox.innerHTML = '<div><i>Call started...</i></div>';
+      let startedAt = Date.now();
+      let timerInterval = setInterval(() => {
+        const d = Math.floor((Date.now() - startedAt) / 1000);
+        timerEl.textContent =
+          String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
+      }, 1000);
 
-  } catch (err) {
-    console.error("startEasyDialCall error:", err);
-    // This outer catch is now mainly for programming errors, as network errors are handled inside.
-    if (!(err instanceof TypeError)) {
-      window.showNotification("Could not start AI call. Please check backend connection and console for details.", 'error', 5000);
-    }
-  }
-}
-
-function openEasyDialModal(sessionId, backendUrl, initialScript = '') {
-  const modal = document.getElementById('easyDialModal');
-  const transcriptBox = document.getElementById('transcriptBox');
-  const endCallBtn = document.getElementById('endCallBtn');
-  const speakBtn = document.getElementById('speakBtn');
-  const timerEl = document.getElementById('callTimer');
-
-  let lastAiReply = ''; // Store the last AI reply text
-  let lastUserText = ''; // De-dup user transcript entries
-  let mediaRecorder;
-  let streamRef;
-
-  modal.style.display = 'flex';
-  transcriptBox.innerHTML = '<div><i>Call started...</i></div>';
-  let startedAt = Date.now();
-  let timerInterval = setInterval(() => {
-    const d = Math.floor((Date.now() - startedAt) / 1000);
-    timerEl.textContent =
-      String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
-  }, 1000);
-
-  // Play TTS via backend /tts endpoint.
-  async function playTTSFromText(text) {
-      if (!text) return;
-      try {
-          const ttsResp = await fetch(`${backendUrl}/tts`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: text }),
-          });
-          if (!ttsResp.ok) {
-              const errText = await ttsResp.text();
-              console.error("/tts endpoint failed:", ttsResp.status, errText);
-              // Fallback to browser TTS if the backend fails (and resolve after utterance ends)
+      // Play TTS via backend /tts endpoint or by fetching a tts_url.
+      async function playTTSFromText(text) {
+          if (!text) return;
+          try {
+              const ttsResp = await fetch(`${backendUrl}/tts`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: text }),
+              });
+              if (!ttsResp.ok) {
+                  const errText = await ttsResp.text();
+                  console.error("/tts endpoint failed:", ttsResp.status, errText);
+                  // Fallback to browser TTS if the backend fails (and resolve after utterance ends)
+                  return new Promise(resolve => {
+                      const utterance = new SpeechSynthesisUtterance(text);
+                      utterance.onend = () => resolve();
+                      speechSynthesis.speak(utterance);
+                  });
+              }
+              const audioBlob = await ttsResp.blob();
+              const audioUrl = URL.createObjectURL(audioBlob);
+              const audio = new Audio(audioUrl);
+              // ensure we return a promise that resolves when audio ended
+              return new Promise((resolve) => {
+                  audio.onended = () => {
+                      URL.revokeObjectURL(audioUrl);
+                      resolve();
+                  };
+                  audio.onerror = (e) => {
+                      console.error("Playback error for audio element, falling back to speechSynthesis", e);
+                      // fallback to speechSynthesis then resolve when finished
+                      const utterance = new SpeechSynthesisUtterance(text);
+                      utterance.onend = () => resolve();
+                      speechSynthesis.speak(utterance);
+                  };
+                  audio.play().catch(err => {
+                      console.error("Audio play() failed:", err);
+                      const utterance = new SpeechSynthesisUtterance(text);
+                      utterance.onend = () => resolve();
+                      speechSynthesis.speak(utterance);
+                  });
+              });
+          } catch (err) {
+              console.error("Error fetching or playing TTS audio:", err);
+              // Fallback to browser TTS on network error and wait for it to finish
               return new Promise(resolve => {
                   const utterance = new SpeechSynthesisUtterance(text);
                   utterance.onend = () => resolve();
                   speechSynthesis.speak(utterance);
               });
           }
-          const audioBlob = await ttsResp.blob();
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const audio = new Audio(audioUrl);
-          // ensure we return a promise that resolves when audio ended
-          return new Promise((resolve) => {
-              audio.onended = () => {
-                  URL.revokeObjectURL(audioUrl);
-                  resolve();
-              };
-              audio.onerror = (e) => {
-                  console.error("Playback error for audio element, falling back to speechSynthesis", e);
-                  // fallback to speechSynthesis then resolve when finished
-                  const utterance = new SpeechSynthesisUtterance(text);
-                  utterance.onend = () => resolve();
-                  speechSynthesis.speak(utterance);
-              };
-              audio.play().catch(err => {
-                  console.error("Audio play() failed:", err);
-                  const utterance = new SpeechSynthesisUtterance(text);
-                  utterance.onend = () => resolve();
-                  speechSynthesis.speak(utterance);
-              });
-          });
-      } catch (err) {
-          console.error("Error fetching or playing TTS audio:", err);
-          // Fallback to browser TTS on network error and wait for it to finish
-          return new Promise(resolve => {
-              const utterance = new SpeechSynthesisUtterance(text);
-              utterance.onend = () => resolve();
-              speechSynthesis.speak(utterance);
-          });
       }
-  }
 
-  // Start microphone recording after TTS playback finishes (so agent speaks first)
-  async function startRecordingAfterTTS() {
-    try {
-      streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      alert('Microphone access denied. Please allow mic and try again.');
-      modal.style.display = 'none';
-      clearInterval(timerInterval);
-      return;
-    }
+      // Play a tts_url if present, otherwise call playTTSFromText
+      async function playTTSfromUrlOrText(ttsUrl, text) {
+        if (ttsUrl) {
+          try {
+            const resp = await fetch(ttsUrl);
+            if (resp.ok) {
+              const blob = await resp.blob();
+              const url = URL.createObjectURL(blob);
+              const audio = new Audio(url);
+              return new Promise((resolve) => {
+                audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+                audio.onerror = async (e) => { console.warn("Initial TTS play error, fallback:", e); await playTTSFromText(text); resolve(); };
+                audio.play().catch(async (e) => { console.warn("Audio play blocked, fallback to /tts or speechSynthesis", e); await playTTSFromText(text); resolve(); });
+              });
+            } else {
+              console.warn("Initial TTS fetch failed:", resp.status);
+              // fallback to backend /tts or browser
+              return await playTTSFromText(text);
+            }
+          } catch (err) {
+            console.error("Error fetching initial TTS URL:", err);
+            return await playTTSFromText(text);
+          }
+        } else {
+          return await playTTSFromText(text);
+        }
+      }
 
-    // set mimeType explicitly but fallback if not supported
-    let mimeType = '';
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
-    else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
-    else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) mimeType = 'audio/ogg;codecs=opus';
-    else if (MediaRecorder.isTypeSupported('audio/mpeg')) mimeType = 'audio/mpeg';
-    // final fallback: no mimeType
-    const options = mimeType ? { mimeType } : undefined;
-
-    mediaRecorder = new MediaRecorder(streamRef, options);
-
-    // 2-second chunks (you can increase to reduce number of uploads)
-    mediaRecorder.start(2000);
-
-    mediaRecorder.ondataavailable = async (e) => {
-      try {
-        if (!e.data || e.data.size === 0) return;
-
-        // --- DEBUG: print mime type + size so you can see what the browser produces
-        console.log('[ASR] chunk received:', { type: e.data.type, size: e.data.size });
-
-        // Determine extension based on mime type so backend/OpenAI can auto-detect
-        const mime = (e.data.type || '').toLowerCase();
-        let ext = 'webm'; // default
-        if (mime.includes('ogg')) ext = 'ogg';
-        else if (mime.includes('webm')) ext = 'webm';
-        else if (mime.includes('wav')) ext = 'wav';
-        else if (mime.includes('mpeg') || mime.includes('mp3')) ext = 'mp3';
-        else if (mime.includes('m4a') || mime.includes('x-m4a')) ext = 'm4a';
-        else if (mime.includes('flac')) ext = 'flac';
-
-        // Make sure filename extension matches actual mime type
-        const filename = `chunk.${ext}`;
-
-        const fd = new FormData();
-        // field name 'audio' must match what the backend expects
-        fd.append('audio', e.data, filename);
-
-        // Optional: add metadata so backend can log and forward correctly
-        fd.append('client_mime', mime);
-        fd.append('chunk_size', String(e.data.size));
-
-        // POST to your backend ASR endpoint
-        const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
-
-        if (!r.ok) {
-          const bodyText = await r.text().catch(() => '<no body>');
-          console.error('/asr returned non-OK', r.status, bodyText);
+      // Start microphone recording after TTS playback finishes (so agent speaks first)
+      async function startRecordingAfterTTS() {
+        try {
+          streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err) {
+          alert('Microphone access denied. Please allow mic and try again.');
+          modal.style.display = 'none';
+          clearInterval(timerInterval);
           return;
         }
 
-        // parse JSON response (your backend should return { text: "...", ai_text: "..." } )
-        const j = await r.json();
+        // set mimeType explicitly but fallback if not supported
+        let mimeType = '';
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+        else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) mimeType = 'audio/ogg;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/mpeg')) mimeType = 'audio/mpeg';
+        // final fallback: no mimeType
+        const options = mimeType ? { mimeType } : undefined;
 
-        // Append user text only when it changed (avoid duplicates)
-        if (j.text && j.text.trim()) {
-          const normalized = j.text.trim();
-          if (normalized !== lastUserText) {
-            lastUserText = normalized;
-            const userLine = document.createElement('div');
-            userLine.textContent = `You: ${normalized}`;
-            transcriptBox.appendChild(userLine);
-            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+        mediaRecorder = new MediaRecorder(streamRef, options);
+
+        // 2-second chunks (you can increase to reduce number of uploads)
+        mediaRecorder.start(2000);
+
+        mediaRecorder.ondataavailable = async (e) => {
+          try {
+            if (!e.data || e.data.size === 0) return;
+
+            // --- DEBUG: print mime type + size so you can see what the browser produces
+            console.log('[ASR] chunk received:', { type: e.data.type, size: e.data.size });
+
+            // Determine extension based on mime type so backend/OpenAI can auto-detect
+            const mime = (e.data.type || '').toLowerCase();
+            let ext = 'webm'; // default
+            if (mime.includes('ogg')) ext = 'ogg';
+            else if (mime.includes('webm')) ext = 'webm';
+            else if (mime.includes('wav')) ext = 'wav';
+            else if (mime.includes('mpeg') || mime.includes('mp3')) ext = 'mp3';
+            else if (mime.includes('m4a') || mime.includes('x-m4a')) ext = 'm4a';
+            else if (mime.includes('flac')) ext = 'flac';
+
+            // Make sure filename extension matches actual mime type
+            const filename = `chunk.${ext}`;
+
+            const fd = new FormData();
+            // field name 'audio' must match what the backend expects
+            fd.append('audio', e.data, filename);
+
+            // Optional: add metadata so backend can log and forward correctly
+            fd.append('client_mime', mime);
+            fd.append('chunk_size', String(e.data.size));
+
+            // POST to your backend ASR endpoint
+            const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
+
+            if (!r.ok) {
+              const bodyText = await r.text().catch(() => '<no body>');
+              console.error('/asr returned non-OK', r.status, bodyText);
+              return;
+            }
+
+            // parse JSON response (your backend should return { text: "...", ai_text: "..." } )
+            const j = await r.json();
+
+            // Append user text only when it changed (avoid duplicates)
+            if (j.text && j.text.trim()) {
+              const normalized = j.text.trim();
+              if (normalized !== lastUserText) {
+                lastUserText = normalized;
+                const userLine = document.createElement('div');
+                userLine.textContent = `You: ${normalized}`;
+                transcriptBox.appendChild(userLine);
+                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+              }
+            }
+
+            // If backend already returned AI reply, append & play
+            if (j.ai_text && j.ai_text.trim()) {
+              const aiNormalized = j.ai_text.trim();
+              // Avoid repeating same agent reply multiple times
+              if (aiNormalized !== lastAiReply) {
+                lastAiReply = aiNormalized;
+                const botLine = document.createElement('div');
+                botLine.textContent = `Agent: ${aiNormalized}`;
+                transcriptBox.appendChild(botLine);
+                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+                // store and auto-play TTS (your /tts endpoint expected to accept { text } and return audio blob)
+                await playTTSFromText(aiNormalized);
+              }
+            }
+
+          } catch (err) {
+            console.error('ASR ondataavailable error:', err);
           }
+        };
+
+        mediaRecorder.onerror = (ev) => {
+          console.error("MediaRecorder error:", ev);
+        };
+
+        mediaRecorder.onstop = () => {
+          console.log("MediaRecorder stopped");
+        };
+      }
+
+      // if there's an initialText, play it first (agent speaks first)
+      (async () => {
+        try {
+          if (initialText && initialText.trim()) {
+            // Append the initial script/text to transcript so user sees agent opening line
+            const opening = document.createElement('div');
+            opening.textContent = `Agent: ${initialText}`;
+            transcriptBox.appendChild(opening);
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+
+            // Play tts_url if provided else call backend /tts then wait for playback to finish
+            await playTTSfromUrlOrText(initialTtsUrl, initialText);
+            // small pause to ensure smooth handover
+            await new Promise(res => setTimeout(res, 200));
+          }
+        } catch (err) {
+          console.error("Error playing initial script:", err);
+        } finally {
+          // Start recording after initial script is played (or if nothing to play)
+          await startRecordingAfterTTS();
+        }
+      })();
+
+      speakBtn.onclick = async () => {
+        // Re-play the last stored AI reply
+        if(lastAiReply) {
+            await (async () => { try { await playTTSFromText(lastAiReply); } catch(e){console.error(e)} })();
+        }
+      };
+
+      endCallBtn.onclick = async () => {
+        try {
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+          if (streamRef) {
+            streamRef.getTracks().forEach(track => track.stop());
+          }
+        } catch (e) {
+          console.warn("Error stopping media recorder/stream:", e);
         }
 
-        // If backend already returned AI reply, append & play
-        if (j.ai_text && j.ai_text.trim()) {
-          const aiNormalized = j.ai_text.trim();
-          // Avoid repeating same agent reply multiple times
-          if (aiNormalized !== lastAiReply) {
-            lastAiReply = aiNormalized;
-            const botLine = document.createElement('div');
-            botLine.textContent = `Agent: ${aiNormalized}`;
-            transcriptBox.appendChild(botLine);
-            transcriptBox.scrollTop = transcriptBox.scrollHeight;
-            // store and auto-play TTS (your /tts endpoint expected to accept { text } and return audio blob)
-            await playTTSFromText(aiNormalized);
-          }
+        clearInterval(timerInterval);
+        modal.style.display = 'none';
+        try {
+          await fetch(`${backendUrl}/session/end/${sessionId}`, { method: 'POST' });
+          window.showNotification('Call ended successfully.', 'success');
+        } catch (err) {
+          console.error("End call error:", err);
+          window.showNotification('Call ended but failed to notify backend.', 'error');
         }
-
-      } catch (err) {
-        console.error('ASR ondataavailable error:', err);
-      }
-    };
-
-    mediaRecorder.onerror = (ev) => {
-      console.error("MediaRecorder error:", ev);
-    };
-
-    mediaRecorder.onstop = () => {
-      console.log("MediaRecorder stopped");
-    };
-  }
-
-  // if there's an initialScript, play it first (agent speaks first)
-  (async () => {
-    try {
-      if (initialScript && initialScript.trim()) {
-        // Append the initial script to transcript so user sees agent opening line
-        const opening = document.createElement('div');
-        opening.textContent = `Agent: ${initialScript}`;
-        transcriptBox.appendChild(opening);
-        transcriptBox.scrollTop = transcriptBox.scrollHeight;
-
-        // Play script via backend /tts (and wait until it finishes)
-        await playTTSFromText(initialScript);
-        // small pause to ensure smooth handover
-        await new Promise(res => setTimeout(res, 200));
-      }
-    } catch (err) {
-      console.error("Error playing initial script:", err);
-    } finally {
-      // Start recording after initial script is played (or if nothing to play)
-      await startRecordingAfterTTS();
+      };
     }
-  })();
+    /* --------------------- END EASYDIAL FLOW --------------------- */
 
-  speakBtn.onclick = async () => {
-    // Re-play the last stored AI reply
-    if(lastAiReply) {
-        await (async () => { try { await playTTSFromText(lastAiReply); } catch(e){console.error(e)} })();
-    }
-  };
-
-  endCallBtn.onclick = async () => {
-    try {
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      }
-      if (streamRef) {
-        streamRef.getTracks().forEach(track => track.stop());
-      }
-    } catch (e) {
-      console.warn("Error stopping media recorder/stream:", e);
-    }
-
-    clearInterval(timerInterval);
-    modal.style.display = 'none';
-    try {
-      await fetch(`${backendUrl}/session/end/${sessionId}`, { method: 'POST' });
-      window.showNotification('Call ended successfully.', 'success');
-    } catch (err) {
-      console.error("End call error:", err);
-      window.showNotification('Call ended but failed to notify backend.', 'error');
-    }
-  };
-}
 </script>
+
 
 </body>
 </html>
+
