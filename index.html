@@ -1401,13 +1401,11 @@ function openEasyDialModal(sessionId, backendUrl, initialScript = '', serverStar
       clearInterval(timerInterval);
       return;
     }
-
-    let mimeType = '';
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
-    else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
-    else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) mimeType = 'audio/ogg;codecs=opus';
-    else if (MediaRecorder.isTypeSupported('audio/mpeg')) mimeType = 'audio/mpeg';
-
+let mimeType = 'audio/webm';
+if (!MediaRecorder.isTypeSupported(mimeType)) {
+    if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) mimeType = 'audio/ogg;codecs=opus';
+    else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+}
     const options = mimeType ? { mimeType } : undefined;
     mediaRecorder = new MediaRecorder(streamRef, options);
     mediaRecorder.start(2000); // 2-second chunks
@@ -1587,4 +1585,5 @@ function openEasyDialModal(sessionId, backendUrl, initialScript = '', serverStar
 
 </body>
 </html>
+
 
