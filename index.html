@@ -1423,7 +1423,7 @@ if (!MediaRecorder.isTypeSupported(mimeType)) {
         else if (mime.includes('mpeg') || mime.includes('mp3')) ext = 'mp3';
         else if (mime.includes('m4a') || mime.includes('x-m4a')) ext = 'm4a';
 
-        const filename = `chunk.${ext}`;
+        const filename = `chunk_${Date.now()}.webm`;
         const fd = new FormData();
         fd.append('audio', e.data, filename);
         fd.append('client_mime', mime);
@@ -1585,5 +1585,6 @@ if (!MediaRecorder.isTypeSupported(mimeType)) {
 
 </body>
 </html>
+
 
 
