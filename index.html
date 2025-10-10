@@ -1546,9 +1546,20 @@ if (!MediaRecorder.isTypeSupported(mimeType)) {
         } catch (err) {
           console.error("Error playing initial script:", err);
         } finally {
-          // Start recording after initial script is played (or if nothing to play)
-          await startRecordingAfterTTS();
+         // Start recording after initial script is played (or if nothing to play)
+        try {
+          if (typeof window.startRecordingAfterTTS === "function") {
+            // pass sessionId if you have it; otherwise call without args
+            await window.startRecordingAfterTTS(typeof sessionId !== "undefined" ? sessionId : undefined);
+          } else {
+            console.error("startRecordingAfterTTS is not defined on window.");
+            // fallback: try a local recording helper if you have one
+            // await startLocalRecording?.();
+          }
+        } catch (err) {
+          console.error("Error when calling startRecordingAfterTTS:", err);
         }
+      }
       })();
 
       speakBtn.onclick = async () => {
@@ -1585,6 +1596,7 @@ if (!MediaRecorder.isTypeSupported(mimeType)) {
 
 </body>
 </html>
+
 
 
 
