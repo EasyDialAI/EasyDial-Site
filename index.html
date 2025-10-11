@@ -1400,7 +1400,7 @@
             }
             const options = mimeType ? { mimeType } : undefined;
             mediaRecorder = new MediaRecorder(streamRef, options);
-            mediaRecorder.start(2000); // 2-second chunks
+            mediaRecorder.start(3500); // 2-second chunks
 
             mediaRecorder.ondataavailable = async (e) => {
                 try {
@@ -1521,3 +1521,4 @@
 
 </body>
 </html>
+
