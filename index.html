@@ -1394,54 +1394,57 @@
             }
 
             // --- Prefer OGG/Opus (self-contained chunks), fall back to WebM/Opus ---
-let mimeType = 'audio/ogg;codecs=opus';
-if (!MediaRecorder.isTypeSupported(mimeType)) {
-  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-    mimeType = 'audio/webm;codecs=opus';
-  } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-    mimeType = 'audio/webm';
-  } else {
-    mimeType = ''; // let browser pick something workable
-  }
-}
+        let mimeType = 'audio/ogg;codecs=opus';
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                     mimeType = 'audio/webm;codecs=opus';
+          }
+            else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                         mimeType = 'audio/webm';
+          } 
+            else {
+                    mimeType = ''; // let browser pick something workable
+                }
+               }
 
-const options = mimeType ? { mimeType } : undefined;
-mediaRecorder = new MediaRecorder(streamRef, options);
+         const options = mimeType ? { mimeType } : undefined;
+         mediaRecorder = new MediaRecorder(streamRef, options);
 
 // 1.8s chunks are a good balance for latency and ASR accuracy
-const CHUNK_MS = 1800;
-mediaRecorder.start(CHUNK_MS);
+         const CHUNK_MS = 1800;
+         mediaRecorder.start(CHUNK_MS);
 
-mediaRecorder.ondataavailable = async (e) => {
-  try {
-    if (!e.data || e.data.size === 0) return;
-    console.log('[ASR] chunk received:', { type: e.data.type, size: e.data.size });
+         mediaRecorder.ondataavailable = async (e) => {
+              try {
+              if (!e.data || e.data.size === 0) return;
+                    console.log('[ASR] chunk received:', { type: e.data.type, size: e.data.size });
 
-    const type = (e.data.type || '').toLowerCase();
+        const type = (e.data.type || '').toLowerCase();
 
     // pick an extension that matches the blob type we actually have
-    let ext = 'ogg';
-    if (type.includes('webm')) ext = 'webm';
-    else if (type.includes('wav')) ext = 'wav';
-    else if (type.includes('mpeg') || type.includes('mp3')) ext = 'mp3';
-    else if (type.includes('m4a') || type.includes('x-m4a')) ext = 'm4a';
+         let ext = 'ogg';
+         if (type.includes('webm')) ext = 'webm';
+         else if (type.includes('wav')) ext = 'wav';
+         else if (type.includes('mpeg') || type.includes('mp3')) ext = 'mp3';
+         else if (type.includes('m4a') || type.includes('x-m4a')) ext = 'm4a';
 
-    const filename = `chunk_${Date.now()}.${ext}`;
+       const filename = `chunk_${Date.now()}.${ext}`;
 
-    const fd = new FormData();
-    fd.append('audio', e.data, filename);
-    fd.append('client_mime', type);
-    fd.append('chunk_size', String(e.data.size));
+       const fd = new FormData();
+          fd.append('audio', e.data, filename);
+          fd.append('client_mime', type);
+          fd.append('chunk_size', String(e.data.size));
 
-    const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
-    if (!r.ok) {
-      const bodyText = await r.text().catch(() => '<no body>');
-      console.error('/asr returned non-OK', r.status, bodyText);
-    }
-  } catch (err) {
-    console.error('ASR ondataavailable error:', err);
-  }
-};
+                   const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
+                   if (!r.ok) {
+                   const bodyText = await r.text().catch(() => '<no body>');
+                         console.error('/asr returned non-OK', r.status, bodyText);
+                             }
+                          } 
+                    catch (err) {
+                        console.error('ASR ondataavailable error:', err);
+                                }
+                                };
 
 
                     const j = await r.json();
@@ -1537,5 +1540,6 @@ mediaRecorder.ondataavailable = async (e) => {
 
 </body>
 </html>
+
 
 
