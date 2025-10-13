@@ -407,7 +407,12 @@
     </div>
 </div>
 
+
 <script type="module">
+    // --- ADD THIS: feature flag for fallback ---
+const USE_REALTIME = true;   // set false to force classic ASR->Chat->TTS
+// --- END ADD ---
+
     // Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import {
@@ -929,27 +934,37 @@
         }
     }
 
-    // This function is now for the AI Call Modal, replacing the batch campaign logic
-    function handleStartAiCall() {
-        if (localContacts.length === 0) {
-            showNotification('Please add at least one contact before starting a call.', 'error');
-            return;
-        }
+function handleStartAiCall() {
+    if (localContacts.length === 0) {
+        showNotification('Please add at least one contact before starting a call.', 'error');
+        return;
+    }
 
-        // For simplicity, we'll start a call with the first contact in the list.
-        const contactToCall = localContacts[0];
+    // For simplicity, we'll start a call with the first contact in the list.
+    const contactToCall = localContacts[0];
 
-        // Use company name and date/time/reason so agent will open with friendly greeting.
-        const companyName = contactToCall.companyName ? contactToCall.companyName : '';
-        const appointmentDate = contactToCall.date ? contactToCall.date : '';
-        const appointmentTime = contactToCall.time ? contactToCall.time : '';
-        const reason = contactToCall.reason ? contactToCall.reason : '';
+    // Use company name and date/time/reason so agent will open with friendly greeting.
+    const companyName = contactToCall.companyName ? contactToCall.companyName : '';
+    const appointmentDate = contactToCall.date ? contactToCall.date : '';
+    const appointmentTime = contactToCall.time ? contactToCall.time : '';
+    const reason = contactToCall.reason ? contactToCall.reason : '';
 
-        // Build a warm opening that agent will say first (but prefer backend initial_text/tts_url when available)
-        const clientScript = companyName
-            ? `Hi, I'm calling from ${companyName}. This is just a friendly reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`
-            : `Hi, I'm calling as a reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`;
+    // Build a warm opening (still passed to classic flow; Realtime speaks live)
+    const clientScript = companyName
+        ? `Hi, I'm calling from ${companyName}. This is just a friendly reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`
+        : `Hi, I'm calling as a reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`;
 
+    if (USE_REALTIME) {
+        // NEW: Realtime path (you already added startRealtimeCall)
+        startRealtimeCall({
+            name: contactToCall.name,
+            company: contactToCall.companyName,
+            phone: contactToCall.phone,
+            callType: contactToCall.callType,
+            reason: contactToCall.reason
+        });
+    } else {
+        // Existing classic path
         startEasyDialCall({
             name: contactToCall.name,
             company: contactToCall.companyName,
@@ -959,6 +974,8 @@
             script: clientScript
         });
     }
+}
+
 
     function checkCampaignReady() {
         const ready = localContacts.length > 0;
@@ -997,7 +1014,139 @@
                 return { parsed: null, raw: null }; 
             }
         }
+// --- NEW: Realtime call ----
+async function startRealtimeCall({ name, company, phone, callType, reason }) {
+  const modal = document.getElementById('easyDialModal');
+  const transcriptBox = document.getElementById('transcriptBox');
+  const endCallBtn = document.getElementById('endCallBtn');
+  const speakBtn = document.getElementById('speakBtn');
+  const timerEl = document.getElementById('callTimer');
 
+  let pc;
+  let localStream;
+  let startedAt;
+
+  const backendUrl = "https://backend.easydialai.com"; // your backend
+  modal.style.display = 'flex';
+  transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
+  startedAt = Date.now();
+  const timerInt = setInterval(() => {
+    const d = Math.floor((Date.now() - startedAt) / 1000);
+    timerEl.textContent =
+      String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
+  }, 1000);
+
+  // 1) Ask backend for short-lived OpenAI Realtime token
+  let client_secret;
+  try {
+    const s = await fetch(`${backendUrl}/realtime/session`, { method: 'POST' });
+    if (!s.ok) throw new Error(await s.text());
+    const j = await s.json();
+    client_secret = j.client_secret;
+  } catch (e) {
+    console.error("Failed to get realtime session:", e);
+    window.showNotification("Realtime not available. Falling back to classic mode.", "error", 6000);
+    modal.style.display = 'none';
+    clearInterval(timerInt);
+    return;
+  }
+
+  try {
+    // 2) Build a PeerConnection
+    pc = new RTCPeerConnection();
+
+    // Play remote audio from model
+    const remoteAudioEl = new Audio();
+    remoteAudioEl.autoplay = true;
+    pc.ontrack = (event) => {
+      const [remoteStream] = event.streams;
+      remoteAudioEl.srcObject = remoteStream;
+    };
+
+    // Optional: receive model events/transcripts via datachannel
+    pc.ondatachannel = (ev) => {
+      const ch = ev.channel;
+      ch.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          // You can inspect `data` for partial transcripts or tool calls
+          if (data?.type === "transcript.delta" && data?.text) {
+            // append partials if you want live text
+          }
+          if (data?.type === "transcript.completed" && data?.text) {
+            const div = document.createElement('div');
+            div.textContent = `You: ${data.text}`;
+            transcriptBox.appendChild(div);
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+          }
+        } catch {}
+      };
+    };
+
+    // 3) Get mic
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+
+    // 4) Create offer
+    const offer = await pc.createOffer({
+      offerToReceiveAudio: true, offerToReceiveVideo: false
+    });
+    await pc.setLocalDescription(offer);
+
+    // 5) Send SDP to OpenAI Realtime
+    const sdpResp = await fetch(
+      `https://api.openai.com/v1/realtime?model=${encodeURIComponent("gpt-4o-realtime-mini")}`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${client_secret}`,
+          "Content-Type": "application/sdp",
+        },
+        body: offer.sdp,
+      }
+    );
+
+    if (!sdpResp.ok) {
+      console.error("Realtime SDP failed:", sdpResp.status, await sdpResp.text());
+      throw new Error("SDP exchange failed");
+    }
+
+    const answer = await sdpResp.text();
+    await pc.setRemoteDescription({ type: "answer", sdp: answer });
+
+    // That’s it! The model will talk as soon as it has something to say.
+    // The server-side "instructions" handle hinglish + short replies.
+
+    // Optional: let the user replay last bot line (no-op here since audio streams live)
+    speakBtn.onclick = () => window.showNotification("Realtime is already speaking live.", "info");
+
+    // End button
+    endCallBtn.onclick = async () => {
+      try {
+        localStream?.getTracks()?.forEach(t => t.stop());
+        pc?.close();
+      } catch {}
+      clearInterval(timerInt);
+      modal.style.display = 'none';
+      try { await fetch(`${backendUrl}/session/end/rt`, { method: 'POST' }); } catch {}
+      window.showNotification("Call ended.", "success");
+    };
+
+  } catch (err) {
+    console.error("Realtime call error:", err);
+    window.showNotification("Realtime failed. Try again or use classic mode.", "error");
+    try { localStream?.getTracks()?.forEach(t => t.stop()); pc?.close(); } catch {}
+    clearInterval(timerInt);
+    modal.style.display = 'none';
+  }
+}
+
+/* Expose it where you start calls. For example, swap this call:
+   startEasyDialCall(contact)
+   …with…
+   startRealtimeCall(contact)
+   Or add a new button to choose Realtime vs Classic.
+*/
         async function attemptStart(path) {
             const url = `${backendUrl}${path}`;
             console.log("Attempting start at:", url);
