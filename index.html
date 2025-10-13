@@ -1225,26 +1225,72 @@
             const options = mimeType ? { mimeType } : undefined;
             mediaRecorder = new MediaRecorder(streamRef, options);
 
-            // 1.8s chunks are a good balance for latency and ASR accuracy
-            const CHUNK_MS = 800;
-            mediaRecorder.start(CHUNK_MS);
+// --- Tunable VAD knobs ---
+const CHUNK_MS = 1200;                 // a bit shorter → snappier
+const RMS_THRESH = 0.006;              // was 0.010 (too strict for “ok/thanks”)
+const PEAK_THRESH = 0.03;              // backstop if user speaks briefly/loudly
+const MIN_BYTES = 6000;                // avoid tiny partials
+const HANGOVER_MS = 700;               // keep accepting for 0.7s after last speech
 
-           mediaRecorder.ondataavailable = async (e) => {
+let lastSpeechTime = 0;
+let speechActive = false;
+
+mediaRecorder.start(CHUNK_MS);
+
+mediaRecorder.ondataavailable = async (e) => {
   try {
     if (!e.data || e.data.size === 0) return;
 
-    // If currently speaking, or we've *just* gone quiet (flush trailing chunk), send it.
-    const justStoppedSpeaking =
-      !speaking && (performance.now() - lastVoiceMs) < (VAD.EXIT_MS + CHUNK_MS);
+    // --------- VAD with hangover ----------
+    let isSpeech = true; // default to true if decode fails
+    try {
+      const arrayBuf = await e.data.arrayBuffer();
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const ac = new AudioCtx({ sampleRate: 16000 });
+      const buf = await ac.decodeAudioData(arrayBuf.slice(0));
+      const ch = buf.numberOfChannels ? buf.getChannelData(0) : null;
 
-    if (!speaking && !justStoppedSpeaking) {
-      // drop silent chunk
-      return;
+      if (ch && ch.length) {
+        // downsampled RMS + peak
+        let sumSq = 0, maxAbs = 0, n = 0;
+        const stride = 256;
+        for (let i = 0; i < ch.length; i += stride) {
+          const s = ch[i];
+          sumSq += s * s;
+          if (Math.abs(s) > maxAbs) maxAbs = Math.abs(s);
+          n++;
+        }
+        const rms = Math.sqrt(sumSq / Math.max(1, n));
+
+        // speech if either rms OR peak clears threshold, and size reasonable
+        isSpeech = ((rms >= RMS_THRESH) || (maxAbs >= PEAK_THRESH)) && (e.data.size >= MIN_BYTES);
+      } else {
+        isSpeech = false;
+      }
+      try { ac.close(); } catch {}
+    } catch {
+      // decoding failed (some browsers) → don't block; treat as speech
+      isSpeech = true;
     }
 
-    const type = (e.data.type || '').toLowerCase();
+    const now = Date.now();
+    if (isSpeech) {
+      speechActive = true;
+      lastSpeechTime = now;
+    } else if (speechActive && (now - lastSpeechTime) < HANGOVER_MS) {
+      // within hangover window: still accept to avoid clipping ends of phrases
+      isSpeech = true;
+    } else {
+      speechActive = false;
+    }
 
-    // choose extension matching blob type
+    if (!isSpeech) {
+      // Skip silent/too-small chunk
+      return;
+    }
+    // --------- end VAD ----------
+
+    const type = (e.data.type || '').toLowerCase();
     let ext = 'ogg';
     if (type.includes('webm')) ext = 'webm';
     else if (type.includes('wav')) ext = 'wav';
@@ -1257,19 +1303,15 @@
     fd.append('client_mime', type);
     fd.append('chunk_size', String(e.data.size));
 
-    // Optional hint to backend (your backend already treats 'final' as optional)
-    if (justStoppedSpeaking) fd.append('final', '1');
-
     const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
     if (!r.ok) {
-      const bodyText = await r.text().catch(() => '<no body>');
-      console.error('/asr returned non-OK', r.status, bodyText);
+      console.error('/asr returned non-OK', r.status, await r.text().catch(()=>'<no body>'));
       return;
     }
 
     const j = await r.json();
 
-    // de-dup user text
+    // --- transcript updates (keep your existing code here) ---
     if (j.text && j.text.trim()) {
       const normalized = j.text.trim();
       if (normalized !== lastUserText) {
@@ -1281,30 +1323,24 @@
       }
     }
 
-    // AI reply (string or {text, tts_url})
     if (j.ai_text) {
-      let aiText = '';
-      let aiTtsUrl = null;
-      if (typeof j.ai_text === 'string') {
-        aiText = j.ai_text;
-      } else if (typeof j.ai_text === 'object') {
+      let aiText = '', aiTtsUrl = null;
+      if (typeof j.ai_text === 'string') aiText = j.ai_text;
+      else if (typeof j.ai_text === 'object') {
         aiText = j.ai_text.text || '';
         aiTtsUrl = j.ai_text.tts_url || null;
       }
       if (aiText && aiText.trim()) {
-        const aiNorm = aiText.trim();
-        if (aiNorm !== lastAiReply) {
-          lastAiReply = aiNorm;
+        const aiNormalized = aiText.trim();
+        if (aiNormalized !== lastAiReply) {
+          lastAiReply = aiNormalized;
           const botLine = document.createElement('div');
-          botLine.textContent = `Agent: ${aiNorm}`;
+          botLine.textContent = `Agent: ${aiNormalized}`;
           transcriptBox.appendChild(botLine);
           transcriptBox.scrollTop = transcriptBox.scrollHeight;
 
-          if (aiTtsUrl) {
-            new Audio(aiTtsUrl).play().catch(err => console.error('aiTtsUrl play failed:', err));
-          } else {
-            await playTTSFromText(aiNorm);
-          }
+          if (aiTtsUrl) new Audio(aiTtsUrl).play().catch(()=>{});
+          else await playTTSFromText(aiNormalized);
         }
       }
     }
