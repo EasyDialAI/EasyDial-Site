@@ -409,640 +409,529 @@
 
 
 <script type="module">
-    // --- ADD THIS: feature flag for fallback ---
-const USE_REALTIME = true;   // set false to force classic ASR->Chat->TTS
-// --- END ADD ---
-
-    // Firebase SDKs
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import {
-        getAuth,
-        createUserWithEmailAndPassword,
-        signInWithEmailAndPassword,
-        onAuthStateChanged,
-        signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import {
-        getFirestore,
-        doc,
-        setDoc,
-        getDoc,
-        collection,
-        onSnapshot,
-        Timestamp,
-        addDoc
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    // IMPORTANT: Replace with your Firebase project configuration
-    const firebaseConfig = {
-        apiKey: "AIzaSyDW2lsqGemfC70lvgizA9mFnviBApuC-sE",
-        authDomain: "easydial-ai-c18f9.firebaseapp.com",
-        projectId: "easydial-ai-c18f9",
-        storageBucket: "easydial-ai-c18f9.appspot.com",
-        messagingSenderId: "45230248545",
-        appId: "1:45230248545:web:0d804ac8102cada86cd020",
-        measurementId: "G-SJR6N5KXBB"
-    };
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // --- GLOBAL ELEMENTS & STATE ---
-    const allViews = {};
-    let currentUser = null;
-    let userData = {};
-    let localContacts = []; // For manual entry before starting campaign
-    let unsubscribeContacts = null; // To detach Firestore listener for call logs
-    let unsubscribeLiveSheet = null; // To detach Firestore listener for live sheet
-    let campaignActive = false;
-
-    // --- INITIALIZATION ---
-    document.addEventListener('DOMContentLoaded', () => {
-        // Cache all view elements
-        allViews.authContainer = document.getElementById('authContainer');
-        allViews.appContainer = document.getElementById('appContainer');
-        allViews.dashboardView = document.getElementById('dashboardView');
-        allViews.reportsView = document.getElementById('reportsView');
-        allViews.manualEntryView = document.getElementById('manualEntryView');
-        allViews.liveSheetsView = document.getElementById('liveSheetsView'); // New view
-
-        // Setup all event listeners
-        setupEventListeners();
-
-        // Handle auth state
-        onAuthStateChanged(auth, user => {
-            if (user) {
-                currentUser = user;
-                handleUserLogin();
-            } else {
-                currentUser = null;
-                handleUserLogout();
-            }
-        });
-    });
-
-    // --- AUTHENTICATION ---
-    async function handleUserLogin() {
-        // Explicitly switch top-level containers
-        allViews.authContainer.classList.add('hidden');
-        allViews.appContainer.classList.remove('hidden');
-
-        showAppView('dashboardView'); // Show the default internal view
-
-        await fetchUserData();
-        updateUIWithUserData();
-        listenForContacts();
-        listenForLiveSheetEntries(); // Start listening for live sheet updates
-    }
-
-    function handleUserLogout() {
-        if (unsubscribeContacts) unsubscribeContacts();
-        if (unsubscribeLiveSheet) unsubscribeLiveSheet(); // Stop listening on logout
-        userData = {};
-        localContacts = [];
-        currentUser = null;
-
-        // Explicitly switch top-level containers
-        allViews.appContainer.classList.add('hidden');
-        allViews.authContainer.classList.remove('hidden');
-
-        document.getElementById('authForm').reset();
-    }
-
-    // --- DATA HANDLING (FIRESTORE) ---
-    async function fetchUserData() {
-        if (!currentUser) return;
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-            userData = docSnap.data();
-        } else {
-            console.log("No user data found, might be a new user.");
-        }
-    }
-
-    function listenForContacts() {
-        if (unsubscribeContacts) unsubscribeContacts();
-        if (!currentUser) return;
-
-        const contactsColRef = collection(db, 'users', currentUser.uid, 'contacts');
-        unsubscribeContacts = onSnapshot(contactsColRef, (snapshot) => {
-            const contacts = [];
-            snapshot.forEach(doc => contacts.push({ id: doc.id, ...doc.data() }));
-            renderCallLogs(contacts);
-            updateDashboardStats(contacts);
-        });
-    }
-
-    function listenForLiveSheetEntries() {
-        if (unsubscribeLiveSheet) unsubscribeLiveSheet();
-        if (!currentUser) return;
-
-        const liveSheetColRef = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
-        unsubscribeLiveSheet = onSnapshot(liveSheetColRef, (snapshot) => {
-            const entries = [];
-            snapshot.forEach(doc => entries.push({ id: doc.id, ...doc.data() }));
-            renderLiveSheet(entries);
-        });
-    }
-
-    // --- UI & VIEW MANAGEMENT ---
-    function showAppView(viewName) {
-        // This function now only handles views inside the app container
-        const appViews = [allViews.dashboardView, allViews.reportsView, allViews.manualEntryView, allViews.liveSheetsView];
-        appViews.forEach(v => v.classList.add('hidden'));
-
-        if (allViews[viewName]) {
-            allViews[viewName].classList.remove('hidden');
-        }
-        document.getElementById('dropdownMenu').classList.add('hidden');
-    }
-
-    window.showNotification = function(message, type = 'info', duration = 3000) {
-        const notification = document.getElementById('notification');
-        notification.textContent = message;
-        // apply class but keep it accessible for styling differences
-        notification.className = `fixed top-5 right-5 z-[101] p-4 rounded-md text-sm shadow-lg transition-transform duration-300 translate-x-0 notification-${type}`;
-        setTimeout(() => {
-            notification.classList.replace('translate-x-0', 'translate-x-full');
-        }, duration);
-    }
-
-    function updateUIWithUserData() {
-        document.getElementById('sidebarCompanyName').textContent = userData.companyName || 'EasyDial AI';
-        updateVoiceCloneUI(userData.voiceCloneStatus);
-    }
-
-    function updateVoiceCloneUI(status) {
-        const voiceStatusText = document.getElementById('voiceStatusText');
-        const voiceStatusIcon = document.getElementById('voiceStatusIcon');
-
-        if (status === 'cloned') {
-            voiceStatusText.textContent = 'Status: Voice Cloned';
-            voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
-            voiceStatusIcon.classList.remove('text-red-500');
-            voiceStatusIcon.classList.add('text-green-500');
-            document.getElementById('initiateCloneBtn').disabled = true;
-            document.getElementById('initiateCloneBtn').textContent = 'Cloned Successfully';
-        } else if (status === 'cloning') {
-            voiceStatusText.textContent = 'Status: Cloning in Progress...';
-            voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
-            voiceStatusIcon.classList.remove('text-red-500');
-            voiceStatusIcon.classList.add('text-blue-500');
-            document.getElementById('initiateCloneBtn').disabled = true;
-            document.getElementById('initiateCloneBtn').innerHTML = `<div class="loader inline-block mr-2"></div> In Progress`;
-        } else {
-            voiceStatusText.textContent = 'Status: Not Cloned';
-            voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />`;
-            voiceStatusIcon.classList.remove('text-green-500', 'text-blue-500');
-            voiceStatusIcon.classList.add('text-red-500');
-            document.getElementById('initiateCloneBtn').disabled = false;
-        }
-    }
-
-    function renderManualContacts() {
-        const tableBody = document.getElementById('manualContactsTableBody');
-        tableBody.innerHTML = ''; // Clear existing
-        if (localContacts.length === 0) {
-            tableBody.innerHTML = `<tr id="noManualContactsRow"><td colspan="6" class="text-center text-slate-500 py-6">No contacts added yet.</td></tr>`;
-        } else {
-            localContacts.forEach((contact, index) => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="px-6 py-4 text-sm font-medium text-slate-900">${escapeHtml(contact.name)}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.companyName || 'N/A')}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.phone)}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.date)} at ${escapeHtml(contact.time)}</td>
-                    <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(contact.callType)}</td>
-                    <td class="px-6 py-4 text-right text-sm font-medium">
-                        <button data-index="${index}" class="remove-contact-btn text-red-600 hover:text-red-900">Remove</button>
-                    </td>`;
-                tableBody.appendChild(row);
-            });
-        }
-        checkCampaignReady();
-    }
-
-    function renderLiveSheet(entries) {
-        const tableBody = document.getElementById('liveSheetsTableBody');
-        tableBody.innerHTML = '';
-        if (entries.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="4" class="text-center text-slate-500 py-6">No contacts have been added yet.</td></tr>`;
-            return;
-        }
-
-        entries.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-
-        entries.forEach(entry => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(entry.name)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(entry.phone)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(entry.callType)}</td>
-                <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-[300px]" title="${escapeHtml(entry.reason)}">${escapeHtml(entry.reason)}</td>
-            `;
-            tableBody.appendChild(row);
-        });
-    }
-
-    function renderCallLogs(contacts) {
-        const tableBody = document.getElementById('callLogsTableBody');
-        tableBody.innerHTML = '';
-        if(contacts.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="11" class="text-center text-slate-500 py-6">No calls have been made yet.</td></tr>`;
-            return;
-        }
-
-        contacts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-
-        contacts.forEach(contact => {
-            const callStatus = contact.callStatus || 'Pending';
-            let statusBadge = `<span class="status-badge blue">${escapeHtml(callStatus)}</span>`;
-            if (callStatus === 'Completed') statusBadge = `<span class="status-badge green">${escapeHtml(callStatus)}</span>`;
-            if (callStatus === 'Failed' || callStatus === 'No Answer') statusBadge = `<span class="status-badge red">${escapeHtml(callStatus)}</span>`;
-
-            const callDuration = contact.callDuration ? `${contact.callDuration}s` : 'N/A';
-            const callStart = contact.createdAt ? contact.createdAt.toDate().toLocaleString() : 'N/A';
-            const callEnd = contact.callEnd ? contact.callEnd.toDate().toLocaleString() : 'N/A';
-            const followUpDate = contact.followUpDate || 'N/A';
-
-            const recordingButton = contact.recordingUrl ? `<a href="${contact.recordingUrl}" target="_blank" class="audio-btn view-btn text-xs">Play</a>` : 'N/A';
-            const transcriptButton = contact.transcript ? `<button class="gemini-btn view-btn text-xs view-transcript-btn" data-transcript="${escapeHtml(contact.transcript)}" data-name="${escapeHtml(contact.name)}" data-phone="${escapeHtml(contact.phone)}">View</button>` : 'N/A';
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(contact.name)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(contact.phone)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(contact.callType || 'N/A')}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${callStart}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${callEnd}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${callDuration}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${statusBadge}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recordingButton}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${transcriptButton}</td>
-                <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-[200px]" title="${escapeHtml(contact.callSummary || '')}">${escapeHtml(contact.callSummary || 'N/A')}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${followUpDate}</td>
-            `;
-            tableBody.appendChild(row);
-        });
-    }
-
-    function updateDashboardStats(contacts) {
-        const total = contacts.length;
-        if (total === 0) {
-            document.getElementById('callActivityStats').innerHTML = `<p class="text-slate-500 text-center">No campaign data available.</p>`;
-            return;
-        }
-
-        const confirmed = contacts.filter(c => c.appointmentStatus === 'Confirmed').length;
-        const canceled = contacts.filter(c => c.appointmentStatus === 'Canceled').length;
-
-        const confirmedPercent = total > 0 ? Math.round((confirmed / total) * 100) : 0;
-        const canceledPercent = total > 0 ? Math.round((canceled / total) * 100) : 0;
-
-        document.getElementById('callActivityStats').innerHTML = `
-            <div>
-                <div class="flex justify-between mb-1">
-                    <span class="text-base font-medium text-green-700">Confirmed Appointments</span>
-                    <span class="text-sm font-medium text-green-700">${confirmedPercent}% (${confirmed}/${total})</span>
-                </div>
-                <div class="w-full bg-slate-200 rounded-full h-2">
-                    <div class="progress-bar bg-green-500 h-2 rounded-full" style="width: ${confirmedPercent}%"></div>
-                </div>
-            </div>
-            <div>
-                <div class="flex justify-between mb-1">
-                    <span class="text-base font-medium text-yellow-700">Canceled Appointments</span>
-                    <span class="text-sm font-medium text-yellow-700">${canceledPercent}% (${canceled}/${total})</span>
-                </div>
-                <div class="w-full bg-slate-200 rounded-full h-2">
-                    <div class="progress-bar bg-yellow-400 h-2 rounded-full" style="width: ${canceledPercent}%"></div>
-                </div>
-            </div>
-        `;
-    }
-
-    // --- EVENT LISTENERS SETUP ---
-    function setupEventListeners() {
-        // --- Auth ---
-        document.getElementById('switchToSignupBtn').addEventListener('click', () => toggleAuthMode(true));
-        document.getElementById('switchToLoginBtn').addEventListener('click', () => toggleAuthMode(false));
-        document.getElementById('authForm').addEventListener('submit', handleAuthFormSubmit);
-        document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
-
-        // --- Navigation ---
-        document.getElementById('navDashboard').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
-        document.getElementById('navLiveSheet').addEventListener('click', (e) => { e.preventDefault(); showAppView('liveSheetsView'); });
-        document.getElementById('manualEntryBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('manualEntryView'); });
-        document.getElementById('viewReportsBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('reportsView'); });
-        document.getElementById('returnToDashboardBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
-        document.getElementById('returnToDashboardFromReportsBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
-        document.getElementById('returnToDashboardFromSheetBtn').addEventListener('click', (e) => { e.preventDefault(); showAppView('dashboardView'); });
-        document.getElementById('menuButton').addEventListener('click', () => document.getElementById('dropdownMenu').classList.toggle('hidden'));
-        window.addEventListener('click', (e) => {
-            const menuButton = document.getElementById('menuButton');
-            const dropdownMenu = document.getElementById('dropdownMenu');
-            if (menuButton && !menuButton.contains(e.target) && !dropdownMenu.contains(e.target)) {
-                dropdownMenu.classList.add('hidden');
-            }
-        });
-
-        // --- Voice Cloning ---
-        document.getElementById('initiateCloneBtn').addEventListener('click', () => {
-            document.getElementById('cloneInitialState').classList.add('hidden');
-            document.getElementById('cloneUploadState').classList.remove('hidden');
-        });
-        document.getElementById('audio-upload').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if(file){
-                document.getElementById('audioFileName').textContent = file.name;
-                document.getElementById('startCloningBtn').disabled = false;
-            }
-        });
-        document.getElementById('startCloningBtn').addEventListener('click', handleVoiceCloning);
-
-        // --- Campaign & Contacts ---
-        document.getElementById('manualContactForm').addEventListener('submit', handleAddLocalContact);
-        document.getElementById('manualContactsTableBody').addEventListener('click', handleRemoveLocalContact);
-        document.getElementById('startAiCallBtn').addEventListener('click', handleStartAiCall);
-        document.getElementById('callLogsTableBody').addEventListener('click', handleCallLogActions);
-
-
-        // --- Transcript Modal ---
-        document.getElementById('closeTranscriptModalBtn').addEventListener('click', closeTranscriptModal);
-        document.getElementById('transcriptModal').addEventListener('click', (e) => {
-            if(e.target.id === 'transcriptModal') closeTranscriptModal();
-        });
-
-        // --- Date Picker Min Date ---
-        const contactDateInput = document.getElementById('contactDate');
-        if (contactDateInput) contactDateInput.min = new Date().toISOString().split("T")[0];
-    }
-
-    // --- EVENT HANDLER FUNCTIONS ---
-    function toggleAuthMode(isSignUp) {
-        document.getElementById('companyNameField').classList.toggle('hidden', !isSignUp);
-        document.getElementById('industryField').classList.toggle('hidden', !isSignUp);
-        document.getElementById('websiteField').classList.toggle('hidden', !isSignUp);
-        document.getElementById('companySizeField').classList.toggle('hidden', !isSignUp);
-        document.getElementById('authButtonText').textContent = isSignUp ? 'Sign up' : 'Log in';
-        document.getElementById('loginToggleText').classList.toggle('hidden', isSignUp);
-        document.getElementById('signupToggleText').classList.toggle('hidden', !isSignUp);
-    }
-
-    async function handleAuthFormSubmit(e) {
-        e.preventDefault();
-        const isSignUp = !document.getElementById('companyNameField').classList.contains('hidden');
-        const email = e.target.email.value;
-        const password = e.target.password.value;
-
-        const authBtn = document.getElementById('authSubmitBtn');
-        const authBtnText = document.getElementById('authButtonText');
-        const authLoader = document.getElementById('authLoader');
-        authBtn.disabled = true;
-        authBtnText.classList.add('hidden');
-        authLoader.classList.remove('hidden');
-
-        try {
-            if (isSignUp) {
-                const companyName = e.target.companyName.value;
-                if (!companyName) {
-                    showNotification('Company name is required for sign up.', 'error');
-                    return;
-                }
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                // Store additional user info in Firestore
-                await setDoc(doc(db, "users", user.uid), {
-                    email: user.email,
-                    companyName: companyName,
-                    industry: e.target.industry.value,
-                    website: e.target.website.value,
-                    companySize: e.target.companySize.value,
-                    createdAt: Timestamp.now()
-                });
-            } else {
-                await signInWithEmailAndPassword(auth, email, password);
-            }
-            // onAuthStateChanged will handle UI transition
-        } catch (error) {
-            showNotification(error.message, 'error');
-        } finally {
-            authBtn.disabled = false;
-            authBtnText.classList.remove('hidden');
-            authLoader.classList.add('hidden');
-        }
-    }
-
-    function handleCallLogActions(e) {
-        if (e.target.classList.contains('view-transcript-btn')) {
-            const transcript = e.target.dataset.transcript;
-            const name = e.target.dataset.name;
-            const phone = e.target.dataset.phone;
-            openTranscriptModal(transcript, name, phone);
-        }
-    }
-
-    function openTranscriptModal(transcript, name, phone) {
-        document.getElementById('modalTranscriptContent').textContent = transcript;
-        document.getElementById('modalCallDetails').innerHTML = `
-            <div class="text-sm"><span class="font-semibold">Name:</span> ${name}</div>
-            <div class="text-sm"><span class="font-semibold">Phone:</span> ${phone}</div>
-        `;
-        document.getElementById('transcriptModal').classList.remove('hidden');
-    }
-
-    function closeTranscriptModal() {
-        document.getElementById('transcriptModal').classList.add('hidden');
-    }
-
-    async function handleVoiceCloning() {
-        if (!currentUser) return;
-
-        const btn = document.getElementById('startCloningBtn');
-        const btnText = document.getElementById('startCloningBtnText');
-        const btnLoader = document.getElementById('startCloningBtnLoader');
-        btn.disabled = true;
-        btnText.textContent = 'Uploading...';
-        btnLoader.classList.remove('hidden');
-
-        // Simulate upload and cloning process
-        await setDoc(doc(db, 'users', currentUser.uid), { voiceCloneStatus: 'cloning' }, { merge: true });
-        updateVoiceCloneUI('cloning');
-
-        setTimeout(async () => {
-            // Simulate cloning completion
-            await setDoc(doc(db, 'users', currentUser.uid), { voiceCloneStatus: 'cloned' }, { merge: true });
-            updateVoiceCloneUI('cloned');
-            document.getElementById('cloneUploadState').classList.add('hidden');
-            document.getElementById('cloneInitialState').classList.remove('hidden');
-            showNotification('Voice cloning successful!', 'success');
-        }, 5000); // 5-second simulation
-    }
-
-    async function addEntryToLiveSheet(contact) {
-        if (!currentUser) return;
-        try {
-            const liveSheetColRef = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
-            await addDoc(liveSheetColRef, {
-                name: contact.name,
-                phone: contact.phone,
-                callType: contact.callType,
-                reason: contact.reason,
-                createdAt: Timestamp.now()
-            });
-        } catch (error) {
-            console.error("Error adding to live sheet:", error);
-            showNotification('Could not update the live sheet.', 'error');
-        }
-    }
-
-    async function handleAddLocalContact(e) {
-        e.preventDefault();
-        const contact = {
-            name: e.target.contactName.value,
-            companyName: e.target.contactCompanyName.value,
-            phone: e.target.contactPhone.value,
-            date: e.target.contactDate.value,
-            time: e.target.contactTime.value,
-            reason: e.target.contactReason.value,
-            callType: e.target.callType.value
-        };
-
-        if (!contact.name || !contact.phone || !contact.date || !contact.time || !contact.callType) {
-            showNotification('Please fill all required fields.', 'error');
-            return;
-        }
-
-        // Add to live sheet in Firestore immediately
-        await addEntryToLiveSheet(contact);
-
-        // Add to local array for campaign creation
-        localContacts.push(contact);
-        renderManualContacts();
-        e.target.reset();
-        document.getElementById('contactDate').min = new Date().toISOString().split("T")[0]; // reset min date
-    }
-
-    function handleRemoveLocalContact(e) {
-        if (e.target.classList.contains('remove-contact-btn')) {
-            const index = parseInt(e.target.dataset.index, 10);
-            localContacts.splice(index, 1);
-            renderManualContacts();
-        }
-    }
-
-function handleStartAiCall() {
-    if (localContacts.length === 0) {
-        showNotification('Please add at least one contact before starting a call.', 'error');
-        return;
-    }
-
-    // For simplicity, we'll start a call with the first contact in the list.
-    const contactToCall = localContacts[0];
-
-    // Use company name and date/time/reason so agent will open with friendly greeting.
-    const companyName = contactToCall.companyName ? contactToCall.companyName : '';
-    const appointmentDate = contactToCall.date ? contactToCall.date : '';
-    const appointmentTime = contactToCall.time ? contactToCall.time : '';
-    const reason = contactToCall.reason ? contactToCall.reason : '';
-
-    // Build a warm opening (still passed to classic flow; Realtime speaks live)
-    const clientScript = companyName
-        ? `Hi, I'm calling from ${companyName}. This is just a friendly reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`
-        : `Hi, I'm calling as a reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`;
-
-    if (USE_REALTIME) {
-        // NEW: Realtime path (you already added startRealtimeCall)
-        startRealtimeCall({
-            name: contactToCall.name,
-            company: contactToCall.companyName,
-            phone: contactToCall.phone,
-            callType: contactToCall.callType,
-            reason: contactToCall.reason
-        });
+// --- Realtime feature flag & backend host (Cloudflare tunnel stays the same) ---
+const USE_REALTIME = true;  // flip to false to force classic pipeline
+const BACKEND_URL  = "https://backend.easydialai.com";
+
+// Firebase SDKs
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  setDoc,
+  getDoc,
+  collection,
+  onSnapshot,
+  Timestamp,
+  addDoc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// IMPORTANT: your Firebase project configuration (unchanged)
+const firebaseConfig = {
+  apiKey: "AIzaSyDW2lsqGemfC70lvgizA9mFnviBApuC-sE",
+  authDomain: "easydial-ai-c18f9.firebaseapp.com",
+  projectId: "easydial-ai-c18f9",
+  storageBucket: "easydial-ai-c18f9.appspot.com",
+  messagingSenderId: "45230248545",
+  appId: "1:45230248545:web:0d804ac8102cada86cd020",
+  measurementId: "G-SJR6N5KXBB"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db   = getFirestore(app);
+
+// --- GLOBAL ELEMENTS & STATE ---
+const allViews = {};
+let currentUser = null;
+let userData    = {};
+let localContacts = [];          // For manual entry before starting campaign
+let unsubscribeContacts = null;  // detach Firestore listener for call logs
+let unsubscribeLiveSheet = null; // detach Firestore listener for live sheet
+let campaignActive = false;
+
+// --- INIT ---
+document.addEventListener('DOMContentLoaded', () => {
+  // Cache top-level views
+  allViews.authContainer   = document.getElementById('authContainer');
+  allViews.appContainer    = document.getElementById('appContainer');
+  allViews.dashboardView   = document.getElementById('dashboardView');
+  allViews.reportsView     = document.getElementById('reportsView');
+  allViews.manualEntryView = document.getElementById('manualEntryView');
+  allViews.liveSheetsView  = document.getElementById('liveSheetsView');
+
+  setupEventListeners();
+
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      currentUser = user;
+      handleUserLogin();
     } else {
-        // Existing classic path
-        startEasyDialCall({
-            name: contactToCall.name,
-            company: contactToCall.companyName,
-            phone: contactToCall.phone,
-            callType: contactToCall.callType,
-            reason: contactToCall.reason,
-            script: clientScript
-        });
+      currentUser = null;
+      handleUserLogout();
     }
+  });
+});
+
+// ---------- UI helpers ----------
+function showAppView(viewName) {
+  const appViews = [allViews.dashboardView, allViews.reportsView, allViews.manualEntryView, allViews.liveSheetsView];
+  appViews.forEach(v => v.classList.add('hidden'));
+  if (allViews[viewName]) allViews[viewName].classList.remove('hidden');
+  document.getElementById('dropdownMenu').classList.add('hidden');
 }
 
+window.showNotification = function(message, type = 'info', duration = 3000) {
+  const notification = document.getElementById('notification');
+  notification.textContent = message;
+  notification.className = `fixed top-5 right-5 z-[101] p-4 rounded-md text-sm shadow-lg transition-transform duration-300 translate-x-0 notification-${type}`;
+  setTimeout(() => {
+    notification.classList.replace('translate-x-0', 'translate-x-full');
+  }, duration);
+};
 
-    function checkCampaignReady() {
-        const ready = localContacts.length > 0;
-        document.getElementById('startAiCallBtn').disabled = !ready;
-        document.getElementById('campaignReadyText').textContent = ready ? `${localContacts.length} contact(s) ready.` : '';
+function escapeHtml(text) {
+  if (!text && text !== 0) return '';
+  return String(text)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ---------- Auth ----------
+async function handleUserLogin() {
+  allViews.authContainer.classList.add('hidden');
+  allViews.appContainer.classList.remove('hidden');
+  showAppView('dashboardView');
+
+  await fetchUserData();
+  updateUIWithUserData();
+  listenForContacts();
+  listenForLiveSheetEntries();
+}
+function handleUserLogout() {
+  unsubscribeContacts?.(); unsubscribeContacts = null;
+  unsubscribeLiveSheet?.(); unsubscribeLiveSheet = null;
+  userData = {}; localContacts = []; currentUser = null;
+
+  allViews.appContainer.classList.add('hidden');
+  allViews.authContainer.classList.remove('hidden');
+  document.getElementById('authForm').reset();
+}
+async function fetchUserData() {
+  if (!currentUser) return;
+  const dref = doc(db, 'users', currentUser.uid);
+  const snap = await getDoc(dref);
+  userData = snap.exists() ? snap.data() : {};
+}
+function updateUIWithUserData() {
+  document.getElementById('sidebarCompanyName').textContent = userData.companyName || 'EasyDial AI';
+  updateVoiceCloneUI(userData.voiceCloneStatus);
+}
+
+// ---------- Firestore listeners ----------
+function listenForContacts() {
+  unsubscribeContacts?.();
+  if (!currentUser) return;
+  const col = collection(db, 'users', currentUser.uid, 'contacts');
+  unsubscribeContacts = onSnapshot(col, (snapshot) => {
+    const contacts = [];
+    snapshot.forEach(doc => contacts.push({ id: doc.id, ...doc.data() }));
+    renderCallLogs(contacts);
+    updateDashboardStats(contacts);
+  });
+}
+function listenForLiveSheetEntries() {
+  unsubscribeLiveSheet?.();
+  if (!currentUser) return;
+  const col = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
+  unsubscribeLiveSheet = onSnapshot(col, (snapshot) => {
+    const entries = [];
+    snapshot.forEach(doc => entries.push({ id: doc.id, ...doc.data() }));
+    renderLiveSheet(entries);
+  });
+}
+
+// ---------- Voice UI ----------
+function updateVoiceCloneUI(status) {
+  const voiceStatusText = document.getElementById('voiceStatusText');
+  const voiceStatusIcon = document.getElementById('voiceStatusIcon');
+
+  if (status === 'cloned') {
+    voiceStatusText.textContent = 'Status: Voice Cloned';
+    voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />`;
+    voiceStatusIcon.classList.remove('text-red-500');
+    voiceStatusIcon.classList.add('text-green-500');
+    document.getElementById('initiateCloneBtn').disabled = true;
+    document.getElementById('initiateCloneBtn').textContent = 'Cloned Successfully';
+  } else if (status === 'cloning') {
+    voiceStatusText.textContent = 'Status: Cloning in Progress...';
+    voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />`;
+    voiceStatusIcon.classList.remove('text-red-500');
+    voiceStatusIcon.classList.add('text-blue-500');
+    document.getElementById('initiateCloneBtn').disabled = true;
+    document.getElementById('initiateCloneBtn').innerHTML = `<div class="loader inline-block mr-2"></div> In Progress`;
+  } else {
+    voiceStatusText.textContent = 'Status: Not Cloned';
+    voiceStatusIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />`;
+    voiceStatusIcon.classList.remove('text-green-500', 'text-blue-500');
+    voiceStatusIcon.classList.add('text-red-500');
+    document.getElementById('initiateCloneBtn').disabled = false;
+  }
+}
+
+// ---------- Rendering ----------
+function renderManualContacts() {
+  const body = document.getElementById('manualContactsTableBody');
+  body.innerHTML = '';
+  if (localContacts.length === 0) {
+    body.innerHTML = `<tr id="noManualContactsRow"><td colspan="6" class="text-center text-slate-500 py-6">No contacts added yet.</td></tr>`;
+  } else {
+    localContacts.forEach((c, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="px-6 py-4 text-sm font-medium text-slate-900">${escapeHtml(c.name)}</td>
+        <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(c.companyName || 'N/A')}</td>
+        <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(c.phone)}</td>
+        <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(c.date)} at ${escapeHtml(c.time)}</td>
+        <td class="px-6 py-4 text-sm text-slate-500">${escapeHtml(c.callType)}</td>
+        <td class="px-6 py-4 text-right text-sm font-medium">
+          <button data-index="${i}" class="remove-contact-btn text-red-600 hover:text-red-900">Remove</button>
+        </td>`;
+      body.appendChild(tr);
+    });
+  }
+  checkCampaignReady();
+}
+function renderLiveSheet(entries) {
+  const body = document.getElementById('liveSheetsTableBody');
+  body.innerHTML = '';
+  if (entries.length === 0) {
+    body.innerHTML = `<tr><td colspan="4" class="text-center text-slate-500 py-6">No contacts have been added yet.</td></tr>`;
+    return;
+  }
+  entries.sort((a,b)=>(b.createdAt?.toMillis()||0)-(a.createdAt?.toMillis()||0));
+  for (const e of entries) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(e.name)}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(e.phone)}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(e.callType)}</td>
+      <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-[300px]" title="${escapeHtml(e.reason)}">${escapeHtml(e.reason)}</td>`;
+    body.appendChild(tr);
+  }
+}
+function renderCallLogs(contacts) {
+  const body = document.getElementById('callLogsTableBody');
+  body.innerHTML = '';
+  if (contacts.length === 0) {
+    body.innerHTML = `<tr><td colspan="11" class="text-center text-slate-500 py-6">No calls have been made yet.</td></tr>`;
+    return;
+  }
+  contacts.sort((a,b)=>(b.createdAt?.toMillis()||0)-(a.createdAt?.toMillis()||0));
+  for (const c of contacts) {
+    const status = c.callStatus || 'Pending';
+    let badge = `<span class="status-badge blue">${escapeHtml(status)}</span>`;
+    if (status === 'Completed') badge = `<span class="status-badge green">${escapeHtml(status)}</span>`;
+    if (status === 'Failed' || status === 'No Answer') badge = `<span class="status-badge red">${escapeHtml(status)}</span>`;
+    const duration = c.callDuration ? `${c.callDuration}s` : 'N/A';
+    const start    = c.createdAt ? c.createdAt.toDate().toLocaleString() : 'N/A';
+    const end      = c.callEnd ? c.callEnd.toDate().toLocaleString() : 'N/A';
+    const recordingBtn  = c.recordingUrl ? `<a href="${c.recordingUrl}" target="_blank" class="audio-btn view-btn text-xs">Play</a>` : 'N/A';
+    const transcriptBtn = c.transcript ? `<button class="gemini-btn view-btn text-xs view-transcript-btn" data-transcript="${escapeHtml(c.transcript)}" data-name="${escapeHtml(c.name)}" data-phone="${escapeHtml(c.phone)}">View</button>` : 'N/A';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(c.name)}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(c.phone)}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${escapeHtml(c.callType || 'N/A')}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${start}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${end}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${duration}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${badge}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${recordingBtn}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${transcriptBtn}</td>
+      <td class="px-6 py-4 text-sm text-gray-500 truncate max-w-[200px]" title="${escapeHtml(c.callSummary || '')}">${escapeHtml(c.callSummary || 'N/A')}</td>
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${c.followUpDate || 'N/A'}</td>`;
+    body.appendChild(tr);
+  }
+}
+function updateDashboardStats(contacts) {
+  const total = contacts.length;
+  if (!total) {
+    document.getElementById('callActivityStats').innerHTML = `<p class="text-slate-500 text-center">No campaign data available.</p>`;
+    return;
+  }
+  const confirmed = contacts.filter(c => c.appointmentStatus === 'Confirmed').length;
+  const canceled  = contacts.filter(c => c.appointmentStatus === 'Canceled').length;
+  const cPct = Math.round((confirmed / total) * 100);
+  const xPct = Math.round((canceled / total) * 100);
+  document.getElementById('callActivityStats').innerHTML = `
+    <div>
+      <div class="flex justify-between mb-1">
+        <span class="text-base font-medium text-green-700">Confirmed Appointments</span>
+        <span class="text-sm font-medium text-green-700">${cPct}% (${confirmed}/${total})</span>
+      </div>
+      <div class="w-full bg-slate-200 rounded-full h-2">
+        <div class="progress-bar bg-green-500 h-2 rounded-full" style="width:${cPct}%"></div>
+      </div>
+    </div>
+    <div>
+      <div class="flex justify-between mb-1">
+        <span class="text-base font-medium text-yellow-700">Canceled Appointments</span>
+        <span class="text-sm font-medium text-yellow-700">${xPct}% (${canceled}/${total})</span>
+      </div>
+      <div class="w-full bg-slate-200 rounded-full h-2">
+        <div class="progress-bar bg-yellow-400 h-2 rounded-full" style="width:${xPct}%"></div>
+      </div>
+    </div>`;
+}
+
+// ---------- Events ----------
+function setupEventListeners() {
+  // Auth
+  document.getElementById('switchToSignupBtn').addEventListener('click', () => toggleAuthMode(true));
+  document.getElementById('switchToLoginBtn').addEventListener('click',  () => toggleAuthMode(false));
+  document.getElementById('authForm').addEventListener('submit', handleAuthFormSubmit);
+  document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+
+  // Navigation
+  document.getElementById('navDashboard').addEventListener('click', (e)=>{e.preventDefault();showAppView('dashboardView');});
+  document.getElementById('navLiveSheet').addEventListener('click', (e)=>{e.preventDefault();showAppView('liveSheetsView');});
+  document.getElementById('manualEntryBtn').addEventListener('click', (e)=>{e.preventDefault();showAppView('manualEntryView');});
+  document.getElementById('viewReportsBtn').addEventListener('click', (e)=>{e.preventDefault();showAppView('reportsView');});
+  document.getElementById('returnToDashboardBtn').addEventListener('click',(e)=>{e.preventDefault();showAppView('dashboardView');});
+  document.getElementById('returnToDashboardFromReportsBtn').addEventListener('click',(e)=>{e.preventDefault();showAppView('dashboardView');});
+  document.getElementById('returnToDashboardFromSheetBtn').addEventListener('click',(e)=>{e.preventDefault();showAppView('dashboardView');});
+  document.getElementById('menuButton').addEventListener('click',()=>document.getElementById('dropdownMenu').classList.toggle('hidden'));
+  window.addEventListener('click', (e) => {
+    const btn = document.getElementById('menuButton');
+    const menu = document.getElementById('dropdownMenu');
+    if (btn && !btn.contains(e.target) && !menu.contains(e.target)) menu.classList.add('hidden');
+  });
+
+  // Voice clone UI
+  document.getElementById('initiateCloneBtn').addEventListener('click', () => {
+    document.getElementById('cloneInitialState').classList.add('hidden');
+    document.getElementById('cloneUploadState').classList.remove('hidden');
+  });
+  document.getElementById('audio-upload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      document.getElementById('audioFileName').textContent = file.name;
+      document.getElementById('startCloningBtn').disabled = false;
     }
+  });
+  document.getElementById('startCloningBtn').addEventListener('click', handleVoiceCloning);
 
-    function escapeHtml(text) {
-        if (!text && text !== 0) return '';
-        return String(text)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+  // Campaign + contacts
+  document.getElementById('manualContactForm').addEventListener('submit', handleAddLocalContact);
+  document.getElementById('manualContactsTableBody').addEventListener('click', handleRemoveLocalContact);
+  document.getElementById('startAiCallBtn').addEventListener('click', handleStartAiCall);
+  document.getElementById('callLogsTableBody').addEventListener('click', handleCallLogActions);
+
+  // Transcript modal
+  document.getElementById('closeTranscriptModalBtn').addEventListener('click', closeTranscriptModal);
+  document.getElementById('transcriptModal').addEventListener('click', (e)=>{ if(e.target.id==='transcriptModal') closeTranscriptModal(); });
+
+  // Date min
+  const contactDateInput = document.getElementById('contactDate');
+  if (contactDateInput) contactDateInput.min = new Date().toISOString().split("T")[0];
+}
+
+function toggleAuthMode(isSignUp) {
+  document.getElementById('companyNameField').classList.toggle('hidden', !isSignUp);
+  document.getElementById('industryField').classList.toggle('hidden', !isSignUp);
+  document.getElementById('websiteField').classList.toggle('hidden', !isSignUp);
+  document.getElementById('companySizeField').classList.toggle('hidden', !isSignUp);
+  document.getElementById('authButtonText').textContent = isSignUp ? 'Sign up' : 'Log in';
+  document.getElementById('loginToggleText').classList.toggle('hidden', isSignUp);
+  document.getElementById('signupToggleText').classList.toggle('hidden', !isSignUp);
+}
+
+async function handleAuthFormSubmit(e) {
+  e.preventDefault();
+  const isSignUp = !document.getElementById('companyNameField').classList.contains('hidden');
+  const { email, password } = e.target;
+
+  const btn = document.getElementById('authSubmitBtn');
+  const txt = document.getElementById('authButtonText');
+  const ld  = document.getElementById('authLoader');
+  btn.disabled = true; txt.classList.add('hidden'); ld.classList.remove('hidden');
+
+  try {
+    if (isSignUp) {
+      const companyName = e.target.companyName.value;
+      if (!companyName) { showNotification('Company name is required for sign up.', 'error'); return; }
+      const cred = await createUserWithEmailAndPassword(auth, email.value, password.value);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        email: cred.user.email,
+        companyName,
+        industry: e.target.industry.value,
+        website: e.target.website.value,
+        companySize: e.target.companySize.value,
+        createdAt: Timestamp.now()
+      });
+    } else {
+      await signInWithEmailAndPassword(auth, email.value, password.value);
     }
+  } catch (err) {
+    showNotification(err.message, 'error');
+  } finally {
+    btn.disabled = false; txt.classList.remove('hidden'); ld.classList.add('hidden');
+  }
+}
 
-    // ----------------
-    // START CALL FLOW
-    // ----------------
-    
-    // This is the active and final implementation of the call functions.
-    async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
-        const backendUrl = "https://backend.easydialai.com"; // change if needed
+function handleCallLogActions(e) {
+  if (e.target.classList.contains('view-transcript-btn')) {
+    const transcript = e.target.dataset.transcript;
+    const name  = e.target.dataset.name;
+    const phone = e.target.dataset.phone;
+    openTranscriptModal(transcript, name, phone);
+  }
+}
+function openTranscriptModal(transcript, name, phone) {
+  document.getElementById('modalTranscriptContent').textContent = transcript;
+  document.getElementById('modalCallDetails').innerHTML = `
+    <div class="text-sm"><span class="font-semibold">Name:</span> ${name}</div>
+    <div class="text-sm"><span class="font-semibold">Phone:</span> ${phone}</div>`;
+  document.getElementById('transcriptModal').classList.remove('hidden');
+}
+function closeTranscriptModal() {
+  document.getElementById('transcriptModal').classList.add('hidden');
+}
 
-        async function parseBodySafe(resp) {
-            try {
-                const text = await resp.text();
-                try { 
-                    return { parsed: JSON.parse(text), raw: text }; 
-                }
-                catch { 
-                    return { parsed: null, raw: text }; 
-                }
-            } catch (e) { 
-                return { parsed: null, raw: null }; 
-            }
-        }
-// --- NEW: Realtime call ----
+async function handleVoiceCloning() {
+  if (!currentUser) return;
+  const btn = document.getElementById('startCloningBtn');
+  const txt = document.getElementById('startCloningBtnText');
+  const ld  = document.getElementById('startCloningBtnLoader');
+  btn.disabled = true; txt.textContent = 'Uploading...'; ld.classList.remove('hidden');
+
+  await setDoc(doc(db, 'users', currentUser.uid), { voiceCloneStatus: 'cloning' }, { merge: true });
+  updateVoiceCloneUI('cloning');
+
+  setTimeout(async () => {
+    await setDoc(doc(db, 'users', currentUser.uid), { voiceCloneStatus: 'cloned' }, { merge: true });
+    updateVoiceCloneUI('cloned');
+    document.getElementById('cloneUploadState').classList.add('hidden');
+    document.getElementById('cloneInitialState').classList.remove('hidden');
+    showNotification('Voice cloning successful!', 'success');
+  }, 5000);
+}
+
+async function addEntryToLiveSheet(contact) {
+  if (!currentUser) return;
+  try {
+    const col = collection(db, 'users', currentUser.uid, 'live_sheet_entries');
+    await addDoc(col, {
+      name: contact.name, phone: contact.phone, callType: contact.callType, reason: contact.reason,
+      createdAt: Timestamp.now()
+    });
+  } catch (e) {
+    console.error("Error adding to live sheet:", e);
+    showNotification('Could not update the live sheet.', 'error');
+  }
+}
+
+async function handleAddLocalContact(e) {
+  e.preventDefault();
+  const contact = {
+    name: e.target.contactName.value,
+    companyName: e.target.contactCompanyName.value,
+    phone: e.target.contactPhone.value,
+    date: e.target.contactDate.value,
+    time: e.target.contactTime.value,
+    reason: e.target.contactReason.value,
+    callType: e.target.callType.value
+  };
+  if (!contact.name || !contact.phone || !contact.date || !contact.time || !contact.callType) {
+    showNotification('Please fill all required fields.', 'error');
+    return;
+  }
+  await addEntryToLiveSheet(contact);
+  localContacts.push(contact);
+  renderManualContacts();
+  e.target.reset();
+  document.getElementById('contactDate').min = new Date().toISOString().split("T")[0];
+}
+function handleRemoveLocalContact(e) {
+  if (e.target.classList.contains('remove-contact-btn')) {
+    const i = parseInt(e.target.dataset.index, 10);
+    localContacts.splice(i, 1);
+    renderManualContacts();
+  }
+}
+
+// ---------- Call start button ----------
+function handleStartAiCall() {
+  if (localContacts.length === 0) {
+    showNotification('Please add at least one contact before starting a call.', 'error');
+    return;
+  }
+  const c = localContacts[0];
+
+  const companyName     = c.companyName || '';
+  const appointmentDate = c.date || '';
+  const appointmentTime = c.time || '';
+  const reason          = c.reason || '';
+
+  const clientScript = companyName
+    ? `Hi, I'm calling from ${companyName}. This is just a friendly reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`
+    : `Hi, I'm calling as a reminder about your appointment on ${appointmentDate} at ${appointmentTime} regarding ${reason}. Can I confirm that this time still works for you?`;
+
+  if (USE_REALTIME) {
+    startRealtimeCall({
+      name: c.name, company: c.companyName, phone: c.phone, callType: c.callType, reason: c.reason
+    });
+  } else {
+    startEasyDialCall({
+      name: c.name, company: c.companyName, phone: c.phone, callType: c.callType, reason: c.reason, script: clientScript
+    });
+  }
+}
+function checkCampaignReady() {
+  const ready = localContacts.length > 0;
+  document.getElementById('startAiCallBtn').disabled = !ready;
+  document.getElementById('campaignReadyText').textContent = ready ? `${localContacts.length} contact(s) ready.` : '';
+}
+
+// =============== Realtime call (top-level, single definition) ===============
 async function startRealtimeCall({ name, company, phone, callType, reason }) {
-  const modal = document.getElementById('easyDialModal');
+  const modal         = document.getElementById('easyDialModal');
   const transcriptBox = document.getElementById('transcriptBox');
-  const endCallBtn = document.getElementById('endCallBtn');
-  const speakBtn = document.getElementById('speakBtn');
-  const timerEl = document.getElementById('callTimer');
+  const endCallBtn    = document.getElementById('endCallBtn');
+  const speakBtn      = document.getElementById('speakBtn');
+  const timerEl       = document.getElementById('callTimer');
 
-  let pc;
-  let localStream;
-  let startedAt;
+  let pc; let localStream; let startedAt;
 
-  const backendUrl = "https://backend.easydialai.com"; // your backend
   modal.style.display = 'flex';
   transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
+
   startedAt = Date.now();
   const timerInt = setInterval(() => {
     const d = Math.floor((Date.now() - startedAt) / 1000);
     timerEl.textContent =
-      String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
+      String(Math.floor(d / 60)).padStart(2,'0') + ':' + String(d % 60).padStart(2,'0');
   }, 1000);
 
-  // 1) Ask backend for short-lived OpenAI Realtime token
+  // 1) short-lived token from your backend
   let client_secret;
   try {
-    const s = await fetch(`${backendUrl}/realtime/session`, { method: 'POST' });
+    const s = await fetch(`${BACKEND_URL}/realtime/session`, { method: 'POST' });
     if (!s.ok) throw new Error(await s.text());
     const j = await s.json();
-    client_secret = j.client_secret;
+    client_secret = j?.client_secret?.value || j?.client_secret || j;
+    if (!client_secret) throw new Error("No client_secret in session response.");
   } catch (e) {
     console.error("Failed to get realtime session:", e);
     window.showNotification("Realtime not available. Falling back to classic mode.", "error", 6000);
@@ -1052,27 +941,20 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
   }
 
   try {
-    // 2) Build a PeerConnection
+    // 2) RTCPeerConnection
     pc = new RTCPeerConnection();
 
-    // Play remote audio from model
+    // Play model audio
     const remoteAudioEl = new Audio();
     remoteAudioEl.autoplay = true;
-    pc.ontrack = (event) => {
-      const [remoteStream] = event.streams;
-      remoteAudioEl.srcObject = remoteStream;
-    };
+    pc.ontrack = (event) => { remoteAudioEl.srcObject = event.streams[0]; };
 
-    // Optional: receive model events/transcripts via datachannel
+    // Optional transcripts/events
     pc.ondatachannel = (ev) => {
       const ch = ev.channel;
       ch.onmessage = (msg) => {
         try {
           const data = JSON.parse(msg.data);
-          // You can inspect `data` for partial transcripts or tool calls
-          if (data?.type === "transcript.delta" && data?.text) {
-            // append partials if you want live text
-          }
           if (data?.type === "transcript.completed" && data?.text) {
             const div = document.createElement('div');
             div.textContent = `You: ${data.text}`;
@@ -1083,461 +965,352 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
       };
     };
 
-    // 3) Get mic
+    // 3) mic
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
+    for (const t of localStream.getTracks()) pc.addTrack(t, localStream);
 
-    // 4) Create offer
-    const offer = await pc.createOffer({
-      offerToReceiveAudio: true, offerToReceiveVideo: false
-    });
+    // 4) SDP offer
+    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
     await pc.setLocalDescription(offer);
 
-    // 5) Send SDP to OpenAI Realtime
-    const sdpResp = await fetch(
-      `https://api.openai.com/v1/realtime?model=${encodeURIComponent("gpt-4o-realtime-mini")}`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${client_secret}`,
-          "Content-Type": "application/sdp",
-        },
-        body: offer.sdp,
-      }
-    );
-
+    // 5) Send to OpenAI Realtime
+    const modelId = "gpt-4o-realtime-mini";
+    const sdpResp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(modelId)}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${client_secret}`,
+        "Content-Type": "application/sdp",
+      },
+      body: offer.sdp,
+    });
     if (!sdpResp.ok) {
       console.error("Realtime SDP failed:", sdpResp.status, await sdpResp.text());
       throw new Error("SDP exchange failed");
     }
-
     const answer = await sdpResp.text();
     await pc.setRemoteDescription({ type: "answer", sdp: answer });
 
-    // That’s it! The model will talk as soon as it has something to say.
-    // The server-side "instructions" handle hinglish + short replies.
+    // Realtime streams speech; “AI Speak Last” is informational
+    speakBtn.onclick = () => window.showNotification("Realtime is already streaming speech.", "info");
 
-    // Optional: let the user replay last bot line (no-op here since audio streams live)
-    speakBtn.onclick = () => window.showNotification("Realtime is already speaking live.", "info");
-
-    // End button
     endCallBtn.onclick = async () => {
-      try {
-        localStream?.getTracks()?.forEach(t => t.stop());
-        pc?.close();
-      } catch {}
+      try { localStream?.getTracks()?.forEach(t=>t.stop()); pc?.close(); } catch {}
       clearInterval(timerInt);
       modal.style.display = 'none';
-      try { await fetch(`${backendUrl}/session/end/rt`, { method: 'POST' }); } catch {}
       window.showNotification("Call ended.", "success");
     };
 
   } catch (err) {
     console.error("Realtime call error:", err);
     window.showNotification("Realtime failed. Try again or use classic mode.", "error");
-    try { localStream?.getTracks()?.forEach(t => t.stop()); pc?.close(); } catch {}
+    try { localStream?.getTracks()?.forEach(t=>t.stop()); pc?.close(); } catch {}
     clearInterval(timerInt);
     modal.style.display = 'none';
   }
 }
+// ================= end Realtime =================
 
-/* Expose it where you start calls. For example, swap this call:
-   startEasyDialCall(contact)
-   …with…
-   startRealtimeCall(contact)
-   Or add a new button to choose Realtime vs Classic.
-*/
-        async function attemptStart(path) {
-            const url = `${backendUrl}${path}`;
-            console.log("Attempting start at:", url);
-            return await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, company, phone, callType, reason, script }),
-            });
-        }
-
-        try {
-            let startResp;
-            try {
-                startResp = await attemptStart('/session/start');
-            } catch (err) {
-                console.error("Network/fetch error when calling /session/start:", err);
-                if (err instanceof TypeError) {
-                    window.showNotification(
-                        "Connection Error: Could not reach the backend. Check server and CORS settings.",
-                        'error', 8000
-                    );
-                    return;
-                } else {
-                    window.showNotification(`Network error: ${err.message}`, 'error', 8000);
-                    return;
-                }
-            }
-
-            if (!startResp.ok) {
-                const info = await parseBodySafe(startResp);
-                console.warn(`/session/start returned status`, startResp.status, info);
-                if (startResp.status === 404 || startResp.status === 405) {
-                    // fallback attempt to legacy /start path
-                    try {
-                        const fallbackResp = await attemptStart('/start');
-                        if (fallbackResp.ok) {
-                            const fallbackJson = await fallbackResp.json();
-                            const sessionId = fallbackJson.sessionId;
-                            window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
-                            // pass explicit initial_text and tts_url if provided
-                            openEasyDialModal(sessionId, backendUrl, fallbackJson.initial_text || script, fallbackJson.tts_url || null);
-                            return;
-                        } else {
-                            const fbInfo = await parseBodySafe(fallbackResp);
-                            window.showNotification(`Backend returned ${fallbackResp.status}: ${fbInfo.raw || JSON.stringify(fbInfo.parsed)}`, 'error', 8000);
-                            return;
-                        }
-                    } catch (err) {
-                        console.error("Fallback /start error:", err);
-                        window.showNotification("Could not contact backend (fallback).", 'error', 8000);
-                        return;
-                    }
-                } else {
-                    window.showNotification(`Start failed (${startResp.status})`, 'error', 8000);
-                    return;
-                }
-            }
-
-            const startJson = await startResp.json();
-            if (!startJson || !startJson.sessionId) {
-                console.error("Unexpected start response shape:", startJson);
-                window.showNotification("Unexpected response from backend when starting session. Check server logs.", 'error', 8000);
-                return;
-            }
-
-            const sessionId = startJson.sessionId;
-            console.log("Session started:", sessionId);
-            window.showNotification(`Starting real AI call with ${name}...`, 'info', 3000);
-
-            // prefer server-provided init text/tts_url if present; else use client-side script
-            openEasyDialModal(sessionId, backendUrl, startJson.initial_text || script, startJson.tts_url || null);
-
-        } catch (err) {
-            console.error("startEasyDialCall error:", err);
-            window.showNotification("Could not start AI call. Please check backend connection and console for details.", 'error', 5000);
-        }
-    }
-
-    function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTtsUrl = null) {
-        const modal = document.getElementById('easyDialModal');
-        const transcriptBox = document.getElementById('transcriptBox');
-        const endCallBtn = document.getElementById('endCallBtn');
-        const speakBtn = document.getElementById('speakBtn');
-        const timerEl = document.getElementById('callTimer');
-
-        let lastAiReply = '';
-        let lastUserText = '';
-        let mediaRecorder;
-        let streamRef;
-        // --- simple VAD state (energy-based) ---
-        let speaking = false;
-        let lastVoiceMs = 0;
-            const VAD = {
-                  THRESH: 0.015,  // 0..1 RMS energy threshold (tweak if needed)
-                  ENTER_MS: 120,  // min ms above threshold to enter "speaking"
-                  EXIT_MS: 450,   // ms below threshold to exit "speaking"
-           };
-
-
-        modal.style.display = 'flex';
-        transcriptBox.innerHTML = '<div><i>Call started...</i></div>';
-        let startedAt = Date.now();
-        let timerInterval = setInterval(() => {
-            const d = Math.floor((Date.now() - startedAt) / 1000);
-            timerEl.textContent =
-                String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
-        }, 1000);
-
-        async function playTTSFromText(text) {
-            if (!text) return;
-            try {
-                const resp = await fetch(`${backendUrl}/tts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text }),
-                });
-                if (!resp.ok) {
-                    console.error("/tts endpoint failed:", resp.status, await resp.text().catch(()=>'<no body>'));
-                    return new Promise(resolve => {
-                        const u = new SpeechSynthesisUtterance(text);
-                        u.onend = () => resolve();
-                        speechSynthesis.speak(u);
-                    });
-                }
-                const blob = await resp.blob();
-                const url = URL.createObjectURL(blob);
-                const audio = new Audio(url);
-                return new Promise((resolve) => {
-                    audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
-                    audio.onerror = () => { URL.revokeObjectURL(url); const u = new SpeechSynthesisUtterance(text); u.onend = () => resolve(); speechSynthesis.speak(u); };
-                    audio.play().catch(err => { console.error(err); const u = new SpeechSynthesisUtterance(text); u.onend = () => resolve(); speechSynthesis.speak(u); });
-                });
-            } catch (err) {
-                console.error("playTTSFromText error:", err);
-                return new Promise(resolve => {
-                    const u = new SpeechSynthesisUtterance(text);
-                    u.onend = () => resolve();
-                    speechSynthesis.speak(u);
-                });
-            }
-        }
-
-        // If server provided tts_url (for initial greeting) use it, otherwise use initialScript or server initial_text
-        async function playInitialGreeting() {
-            try {
-                if (initialTtsUrl) {
-                    const audio = new Audio(initialTtsUrl);
-                    await new Promise((resolve) => {
-                        audio.onended = () => resolve();
-                        audio.onerror = () => { console.error("Failed to play server tts_url"); resolve(); };
-                        audio.play().catch(err => { console.error("play failed", err); resolve(); });
-                    });
-                    return;
-                }
-                const textToPlay = (initialScript && initialScript.trim()) ? initialScript : "";
-                if (textToPlay) {
-                    const opening = document.createElement('div');
-                    opening.textContent = `Agent: ${textToPlay}`;
-                    transcriptBox.appendChild(opening);
-                    transcriptBox.scrollTop = transcriptBox.scrollHeight;
-                    await playTTSFromText(textToPlay);
-                }
-            } catch (err) {
-                console.error("playInitialGreeting failed:", err);
-            }
-        }
-
-        // Start microphone recording after TTS playback finishes (so agent speaks first)
-        async function startRecordingAfterTTS() {
-            try {
-                streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
-                // --- WebAudio analyser to estimate loudness (RMS) ---
-               const AudioCtx = window.AudioContext || window.webkitAudioContext;
-               const audioCtx = new AudioCtx();
-               const srcNode = audioCtx.createMediaStreamSource(streamRef);
-               const analyser = audioCtx.createAnalyser();
-                     analyser.fftSize = 1024;
-                     srcNode.connect(analyser);
-
-        function tickVAD() {
-                const buf = new Uint8Array(analyser.fftSize);
-                       analyser.getByteTimeDomainData(buf);
-
-  // RMS energy 0..1
-               let sum = 0;
-               for (let i = 0; i < buf.length; i++) {
-               const v = (buf[i] - 128) / 128;
-                     sum += v * v;
-               }
-               const rms = Math.sqrt(sum / buf.length);
-               const now = performance.now();
-
-               if (rms > VAD.THRESH) {
-               if (!speaking && (now - lastVoiceMs) > VAD.ENTER_MS) speaking = true;
-                  lastVoiceMs = now;
-               } else {
-    // leave speaking only after EXIT_MS of quiet
-                 if (speaking && (now - lastVoiceMs) > VAD.EXIT_MS) speaking = false;
-             }
-
-                    requestAnimationFrame(tickVAD);
-            }
-                    tickVAD();
-            } catch (err) {
-                alert('Microphone access denied. Please allow mic and try again.');
-                modal.style.display = 'none';
-                clearInterval(timerInterval);
-                return;
-            }
-
-            // --- Prefer OGG/Opus (self-contained chunks), fall back to WebM/Opus ---
-            let mimeType = 'audio/ogg;codecs=opus';
-            if (!MediaRecorder.isTypeSupported(mimeType)) {
-                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-                    mimeType = 'audio/webm;codecs=opus';
-                }
-                else if (MediaRecorder.isTypeSupported('audio/webm')) {
-                    mimeType = 'audio/webm';
-                } 
-                else {
-                    mimeType = ''; // let browser pick something workable
-                }
-            }
-
-            const options = mimeType ? { mimeType } : undefined;
-            mediaRecorder = new MediaRecorder(streamRef, options);
-
-// --- Tunable VAD knobs ---
-const CHUNK_MS = 1200;                 // a bit shorter → snappier
-const RMS_THRESH = 0.006;              // was 0.010 (too strict for “ok/thanks”)
-const PEAK_THRESH = 0.03;              // backstop if user speaks briefly/loudly
-const MIN_BYTES = 6000;                // avoid tiny partials
-const HANGOVER_MS = 700;               // keep accepting for 0.7s after last speech
-
-let lastSpeechTime = 0;
-let speechActive = false;
-
-mediaRecorder.start(CHUNK_MS);
-
-mediaRecorder.ondataavailable = async (e) => {
-  try {
-    if (!e.data || e.data.size === 0) return;
-
-    // --------- VAD with hangover ----------
-    let isSpeech = true; // default to true if decode fails
+// ---------------- Classic pipeline (kept for fallback) ----------------
+async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
+  async function parseBodySafe(resp) {
     try {
-      const arrayBuf = await e.data.arrayBuffer();
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const ac = new AudioCtx({ sampleRate: 16000 });
-      const buf = await ac.decodeAudioData(arrayBuf.slice(0));
-      const ch = buf.numberOfChannels ? buf.getChannelData(0) : null;
-
-      if (ch && ch.length) {
-        // downsampled RMS + peak
-        let sumSq = 0, maxAbs = 0, n = 0;
-        const stride = 256;
-        for (let i = 0; i < ch.length; i += stride) {
-          const s = ch[i];
-          sumSq += s * s;
-          if (Math.abs(s) > maxAbs) maxAbs = Math.abs(s);
-          n++;
-        }
-        const rms = Math.sqrt(sumSq / Math.max(1, n));
-
-        // speech if either rms OR peak clears threshold, and size reasonable
-        isSpeech = ((rms >= RMS_THRESH) || (maxAbs >= PEAK_THRESH)) && (e.data.size >= MIN_BYTES);
-      } else {
-        isSpeech = false;
-      }
-      try { ac.close(); } catch {}
-    } catch {
-      // decoding failed (some browsers) → don't block; treat as speech
-      isSpeech = true;
-    }
-
-    const now = Date.now();
-    if (isSpeech) {
-      speechActive = true;
-      lastSpeechTime = now;
-    } else if (speechActive && (now - lastSpeechTime) < HANGOVER_MS) {
-      // within hangover window: still accept to avoid clipping ends of phrases
-      isSpeech = true;
-    } else {
-      speechActive = false;
-    }
-
-    if (!isSpeech) {
-      // Skip silent/too-small chunk
-      return;
-    }
-    // --------- end VAD ----------
-
-    const type = (e.data.type || '').toLowerCase();
-    let ext = 'ogg';
-    if (type.includes('webm')) ext = 'webm';
-    else if (type.includes('wav')) ext = 'wav';
-    else if (type.includes('mpeg') || type.includes('mp3')) ext = 'mp3';
-    else if (type.includes('m4a') || type.includes('x-m4a')) ext = 'm4a';
-
-    const filename = `chunk_${Date.now()}.${ext}`;
-    const fd = new FormData();
-    fd.append('audio', e.data, filename);
-    fd.append('client_mime', type);
-    fd.append('chunk_size', String(e.data.size));
-
-    const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
-    if (!r.ok) {
-      console.error('/asr returned non-OK', r.status, await r.text().catch(()=>'<no body>'));
-      return;
-    }
-
-    const j = await r.json();
-
-    // --- transcript updates (keep your existing code here) ---
-    if (j.text && j.text.trim()) {
-      const normalized = j.text.trim();
-      if (normalized !== lastUserText) {
-        lastUserText = normalized;
-        const userLine = document.createElement('div');
-        userLine.textContent = `You: ${normalized}`;
-        transcriptBox.appendChild(userLine);
-        transcriptBox.scrollTop = transcriptBox.scrollHeight;
-      }
-    }
-
-    if (j.ai_text) {
-      let aiText = '', aiTtsUrl = null;
-      if (typeof j.ai_text === 'string') aiText = j.ai_text;
-      else if (typeof j.ai_text === 'object') {
-        aiText = j.ai_text.text || '';
-        aiTtsUrl = j.ai_text.tts_url || null;
-      }
-      if (aiText && aiText.trim()) {
-        const aiNormalized = aiText.trim();
-        if (aiNormalized !== lastAiReply) {
-          lastAiReply = aiNormalized;
-          const botLine = document.createElement('div');
-          botLine.textContent = `Agent: ${aiNormalized}`;
-          transcriptBox.appendChild(botLine);
-          transcriptBox.scrollTop = transcriptBox.scrollHeight;
-
-          if (aiTtsUrl) new Audio(aiTtsUrl).play().catch(()=>{});
-          else await playTTSFromText(aiNormalized);
-        }
-      }
-    }
-  } catch (err) {
-    console.error('ASR ondataavailable error:', err);
+      const text = await resp.text();
+      try { return { parsed: JSON.parse(text), raw: text }; }
+      catch { return { parsed: null, raw: text }; }
+    } catch { return { parsed: null, raw: null }; }
   }
-};
-            mediaRecorder.onerror = (ev) => { console.error("MediaRecorder error:", ev); };
-            mediaRecorder.onstop = () => { console.log("MediaRecorder stopped"); };
+  async function attemptStart(path) {
+    const url = `${BACKEND_URL}${path}`;
+    return await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, company, phone, callType, reason, script })
+    });
+  }
+  try {
+    let startResp;
+    try {
+      startResp = await attemptStart('/session/start');
+    } catch (err) {
+      console.error("Network error /session/start:", err);
+      window.showNotification("Connection Error: Could not reach the backend. Check server and CORS settings.", 'error', 8000);
+      return;
+    }
+    if (!startResp.ok) {
+      const info = await parseBodySafe(startResp);
+      if (startResp.status === 404 || startResp.status === 405) {
+        const fb = await attemptStart('/start');
+        if (fb.ok) {
+          const j = await fb.json();
+          const sessionId = j.sessionId;
+          window.showNotification(`Starting AI call with ${name}...`, 'info', 3000);
+          openEasyDialModal(sessionId, BACKEND_URL, j.initial_text || script, j.tts_url || null);
+          return;
+        } else {
+          const fbInfo = await parseBodySafe(fb);
+          window.showNotification(`Backend returned ${fb.status}: ${fbInfo.raw || JSON.stringify(fbInfo.parsed)}`, 'error', 8000);
+          return;
         }
+      } else {
+        window.showNotification(`Start failed (${startResp.status})`, 'error', 8000);
+        return;
+      }
+    }
+    const startJson = await startResp.json();
+    if (!startJson || !startJson.sessionId) {
+      window.showNotification("Unexpected response from backend when starting session.", 'error', 8000);
+      return;
+    }
+    const sessionId = startJson.sessionId;
+    window.showNotification(`Starting AI call with ${name}...`, 'info', 3000);
+    openEasyDialModal(sessionId, BACKEND_URL, startJson.initial_text || script, startJson.tts_url || null);
+  } catch (err) {
+    console.error("startEasyDialCall error:", err);
+    window.showNotification("Could not start AI call. Check backend & console for details.", 'error', 5000);
+  }
+}
 
-        // Play initial greeting (server-provided tts_url preferred), then start recording
-        (async () => {
-            try {
-                await playInitialGreeting();
-            } catch (err) {
-                console.error("Error in initial greeting playback:", err);
-            } finally {
-                await startRecordingAfterTTS();
-            }
-        })();
+function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTtsUrl = null) {
+  const modal         = document.getElementById('easyDialModal');
+  const transcriptBox = document.getElementById('transcriptBox');
+  const endCallBtn    = document.getElementById('endCallBtn');
+  const speakBtn      = document.getElementById('speakBtn');
+  const timerEl       = document.getElementById('callTimer');
 
-        speakBtn.onclick = async () => {
-            if (lastAiReply) {
-                try { await playTTSFromText(lastAiReply); } catch (e) { console.error(e); }
-            }
-        };
+  let lastAiReply = '';
+  let lastUserText = '';
+  let mediaRecorder; let streamRef;
 
-        endCallBtn.onclick = async () => {
-            try {
-                if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-                if (streamRef) streamRef.getTracks().forEach(track => track.stop());
-            } catch (e) {
-                console.warn("Error stopping media recorder/stream:", e);
-            }
-            clearInterval(timerInterval);
-            modal.style.display = 'none';
-            try {
-                await fetch(`${backendUrl}/session/end/${sessionId}`, { method: 'POST' });
-                window.showNotification('Call ended successfully.', 'success');
-            } catch (err) {
-                console.error("End call error:", err);
-                window.showNotification('Call ended but failed to notify backend.', 'error');
-            }
-        };
+  // simple VAD params
+  let speaking = false; let lastVoiceMs = 0;
+  const VAD = { THRESH: 0.015, ENTER_MS: 120, EXIT_MS: 450 };
+
+  modal.style.display = 'flex';
+  transcriptBox.innerHTML = '<div><i>Call started...</i></div>';
+  let startedAt = Date.now();
+  let timerInterval = setInterval(() => {
+    const d = Math.floor((Date.now() - startedAt) / 1000);
+    timerEl.textContent =
+      String(Math.floor(d / 60)).padStart(2,'0') + ':' + String(d % 60).padStart(2,'0');
+  }, 1000);
+
+  async function playTTSFromText(text) {
+    if (!text) return;
+    try {
+      const resp = await fetch(`${backendUrl}/tts`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!resp.ok) {
+        return new Promise(resolve => {
+          const u = new SpeechSynthesisUtterance(text);
+          u.onend = () => resolve(); speechSynthesis.speak(u);
+        });
+      }
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      return new Promise((resolve) => {
+        audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); const u = new SpeechSynthesisUtterance(text); u.onend = () => resolve(); speechSynthesis.speak(u); };
+        audio.play().catch(()=>{ const u = new SpeechSynthesisUtterance(text); u.onend = () => resolve(); speechSynthesis.speak(u); });
+      });
+    } catch {
+      return new Promise(resolve => {
+        const u = new SpeechSynthesisUtterance(text);
+        u.onend = () => resolve(); speechSynthesis.speak(u);
+      });
+    }
+  }
+
+  async function playInitialGreeting() {
+    try {
+      if (initialTtsUrl) {
+        const audio = new Audio(initialTtsUrl);
+        await new Promise((resolve) => {
+          audio.onended = () => resolve();
+          audio.onerror = () => resolve();
+          audio.play().catch(()=>resolve());
+        });
+        return;
+      }
+      const textToPlay = (initialScript && initialScript.trim()) ? initialScript : "";
+      if (textToPlay) {
+        const opening = document.createElement('div');
+        opening.textContent = `Agent: ${textToPlay}`;
+        transcriptBox.appendChild(opening);
+        transcriptBox.scrollTop = transcriptBox.scrollHeight;
+        await playTTSFromText(textToPlay);
+      }
+    } catch {}
+  }
+
+  async function startRecordingAfterTTS() {
+    try {
+      streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+      // WebAudio analyser for RMS
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      const srcNode  = audioCtx.createMediaStreamSource(streamRef);
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 1024;
+      srcNode.connect(analyser);
+
+      function tickVAD() {
+        const buf = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(buf);
+        let sum = 0;
+        for (let i=0;i<buf.length;i++) {
+          const v = (buf[i]-128)/128; sum += v*v;
+        }
+        const rms = Math.sqrt(sum / buf.length);
+        const now = performance.now();
+        if (rms > VAD.THRESH) {
+          if (!speaking && (now - lastVoiceMs) > VAD.ENTER_MS) speaking = true;
+          lastVoiceMs = now;
+        } else {
+          if (speaking && (now - lastVoiceMs) > VAD.EXIT_MS) speaking = false;
+        }
+        requestAnimationFrame(tickVAD);
+      }
+      tickVAD();
+    } catch (err) {
+      alert('Microphone access denied. Please allow mic and try again.');
+      modal.style.display = 'none';
+      clearInterval(timerInterval);
+      return;
     }
 
+    // choose container
+    let mimeType = 'audio/ogg;codecs=opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))      mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/webm'))             mimeType = 'audio/webm';
+      else mimeType = '';
+    }
+    const options = mimeType ? { mimeType } : undefined;
+    mediaRecorder = new MediaRecorder(streamRef, options);
+
+    // Tuned VAD knobs
+    const CHUNK_MS    = 1200;
+    const RMS_THRESH  = 0.006;
+    const PEAK_THRESH = 0.03;
+    const MIN_BYTES   = 6000;
+    const HANGOVER_MS = 700;
+
+    let lastSpeechTime = 0;
+    let speechActive   = false;
+
+    mediaRecorder.start(CHUNK_MS);
+    mediaRecorder.ondataavailable = async (e) => {
+      try {
+        if (!e.data || e.data.size === 0) return;
+
+        // lightweight VAD w/ hangover
+        let isSpeech = true;
+        try {
+          const arrayBuf = await e.data.arrayBuffer();
+          const AC = window.AudioContext || window.webkitAudioContext;
+          const ac = new AC({ sampleRate: 16000 });
+          const buf = await ac.decodeAudioData(arrayBuf.slice(0));
+          const ch  = buf.numberOfChannels ? buf.getChannelData(0) : null;
+          if (ch && ch.length) {
+            let sumSq=0, maxAbs=0, n=0;
+            const stride=256;
+            for (let i=0;i<ch.length;i+=stride) {
+              const s = ch[i]; sumSq += s*s; if (Math.abs(s)>maxAbs) maxAbs=Math.abs(s); n++;
+            }
+            const rms = Math.sqrt(sumSq / Math.max(1,n));
+            isSpeech = ((rms >= RMS_THRESH) || (maxAbs >= PEAK_THRESH)) && (e.data.size >= MIN_BYTES);
+          } else {
+            isSpeech = false;
+          }
+          try { ac.close(); } catch {}
+        } catch { isSpeech = true; }
+
+        const now = Date.now();
+        if (isSpeech) {
+          speechActive = true; lastSpeechTime = now;
+        } else if (speechActive && (now - lastSpeechTime) < HANGOVER_MS) {
+          isSpeech = true;
+        } else {
+          speechActive = false;
+        }
+        if (!isSpeech) return;
+
+        const type = (e.data.type || '').toLowerCase();
+        let ext = 'ogg';
+        if (type.includes('webm')) ext = 'webm';
+        else if (type.includes('wav')) ext = 'wav';
+        else if (type.includes('mpeg') || type.includes('mp3')) ext = 'mp3';
+        else if (type.includes('m4a') || type.includes('x-m4a')) ext = 'm4a';
+
+        const filename = `chunk_${Date.now()}.${ext}`;
+        const fd = new FormData();
+        fd.append('audio', e.data, filename);
+        fd.append('client_mime', type);
+        fd.append('chunk_size', String(e.data.size));
+
+        const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
+        if (!r.ok) { console.error('/asr returned non-OK', r.status, await r.text().catch(()=>'<no body>')); return; }
+        const j = await r.json();
+
+        if (j.text && j.text.trim()) {
+          const normalized = j.text.trim();
+          if (normalized !== lastUserText) {
+            lastUserText = normalized;
+            const userLine = document.createElement('div');
+            userLine.textContent = `You: ${normalized}`;
+            transcriptBox.appendChild(userLine);
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+          }
+        }
+
+        if (j.ai_text) {
+          let aiText = '', aiTtsUrl = null;
+          if (typeof j.ai_text === 'string') aiText = j.ai_text;
+          else if (typeof j.ai_text === 'object') { aiText = j.ai_text.text || ''; aiTtsUrl = j.ai_text.tts_url || null; }
+          if (aiText && aiText.trim()) {
+            const aiNormalized = aiText.trim();
+            if (aiNormalized !== lastAiReply) {
+              lastAiReply = aiNormalized;
+              const botLine = document.createElement('div');
+              botLine.textContent = `Agent: ${aiNormalized}`;
+              transcriptBox.appendChild(botLine);
+              transcriptBox.scrollTop = transcriptBox.scrollHeight;
+              if (aiTtsUrl) new Audio(aiTtsUrl).play().catch(()=>{});
+              else await playTTSFromText(aiNormalized);
+            }
+          }
+        }
+      } catch (err) { console.error('ASR ondataavailable error:', err); }
+    };
+    mediaRecorder.onerror = (ev) => console.error("MediaRecorder error:", ev);
+  }
+
+  (async () => {
+    try { await playInitialGreeting(); } catch(e) { console.error(e); }
+    finally { await startRecordingAfterTTS(); }
+  })();
+
+  document.getElementById('speakBtn').onclick = async () => {
+    if (lastAiReply) { try { await playTTSFromText(lastAiReply); } catch (e) {} }
+  };
+  document.getElementById('endCallBtn').onclick = async () => {
+    try {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      streamRef?.getTracks().forEach(t=>t.stop());
+    } catch {}
+    clearInterval(timerInterval);
+    modal.style.display = 'none';
+    try { await fetch(`${backendUrl}/session/end/${sessionId}`, { method: 'POST' }); showNotification('Call ended successfully.', 'success'); }
+    catch { showNotification('Call ended but failed to notify backend.', 'error'); }
+  };
+}
+// ---------------- end classic ----------------
 </script>
+
 
 </body>
 </html>
