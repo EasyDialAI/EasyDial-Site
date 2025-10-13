@@ -1087,6 +1087,15 @@
         let lastUserText = '';
         let mediaRecorder;
         let streamRef;
+        // --- simple VAD state (energy-based) ---
+        let speaking = false;
+        let lastVoiceMs = 0;
+            const VAD = {
+                  THRESH: 0.015,  // 0..1 RMS energy threshold (tweak if needed)
+                  ENTER_MS: 120,  // min ms above threshold to enter "speaking"
+                  EXIT_MS: 450,   // ms below threshold to exit "speaking"
+           };
+
 
         modal.style.display = 'flex';
         transcriptBox.innerHTML = '<div><i>Call started...</i></div>';
@@ -1160,6 +1169,38 @@
         async function startRecordingAfterTTS() {
             try {
                 streamRef = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // --- WebAudio analyser to estimate loudness (RMS) ---
+               const AudioCtx = window.AudioContext || window.webkitAudioContext;
+               const audioCtx = new AudioCtx();
+               const srcNode = audioCtx.createMediaStreamSource(streamRef);
+               const analyser = audioCtx.createAnalyser();
+                     analyser.fftSize = 1024;
+                     srcNode.connect(analyser);
+
+        function tickVAD() {
+                const buf = new Uint8Array(analyser.fftSize);
+                       analyser.getByteTimeDomainData(buf);
+
+  // RMS energy 0..1
+               let sum = 0;
+               for (let i = 0; i < buf.length; i++) {
+               const v = (buf[i] - 128) / 128;
+                     sum += v * v;
+               }
+               const rms = Math.sqrt(sum / buf.length);
+               const now = performance.now();
+
+               if (rms > VAD.THRESH) {
+               if (!speaking && (now - lastVoiceMs) > VAD.ENTER_MS) speaking = true;
+                  lastVoiceMs = now;
+               } else {
+    // leave speaking only after EXIT_MS of quiet
+                 if (speaking && (now - lastVoiceMs) > VAD.EXIT_MS) speaking = false;
+             }
+
+                    requestAnimationFrame(tickVAD);
+            }
+                    tickVAD();
             } catch (err) {
                 alert('Microphone access denied. Please allow mic and try again.');
                 modal.style.display = 'none';
@@ -1185,84 +1226,92 @@
             mediaRecorder = new MediaRecorder(streamRef, options);
 
             // 1.8s chunks are a good balance for latency and ASR accuracy
-            const CHUNK_MS = 1800;
+            const CHUNK_MS = 800;
             mediaRecorder.start(CHUNK_MS);
 
-            mediaRecorder.ondataavailable = async (e) => {
-                try {
-                    if (!e.data || e.data.size === 0) return;
+           mediaRecorder.ondataavailable = async (e) => {
+  try {
+    if (!e.data || e.data.size === 0) return;
 
-                    const type = (e.data.type || '').toLowerCase();
+    // If currently speaking, or we've *just* gone quiet (flush trailing chunk), send it.
+    const justStoppedSpeaking =
+      !speaking && (performance.now() - lastVoiceMs) < (VAD.EXIT_MS + CHUNK_MS);
 
-                    // pick an extension that matches the blob type we actually have
-                    let ext = 'ogg';
-                    if (type.includes('webm')) ext = 'webm';
-                    else if (type.includes('wav')) ext = 'wav';
-                    else if (type.includes('mpeg') || type.includes('mp3')) ext = 'mp3';
-                    else if (type.includes('m4a') || type.includes('x-m4a')) ext = 'm4a';
+    if (!speaking && !justStoppedSpeaking) {
+      // drop silent chunk
+      return;
+    }
 
-                    const filename = `chunk_${Date.now()}.${ext}`;
+    const type = (e.data.type || '').toLowerCase();
 
-                    const fd = new FormData();
-                    fd.append('audio', e.data, filename);
-                    fd.append('client_mime', type);
-                    fd.append('chunk_size', String(e.data.size));
+    // choose extension matching blob type
+    let ext = 'ogg';
+    if (type.includes('webm')) ext = 'webm';
+    else if (type.includes('wav')) ext = 'wav';
+    else if (type.includes('mpeg') || type.includes('mp3')) ext = 'mp3';
+    else if (type.includes('m4a') || type.includes('x-m4a')) ext = 'm4a';
 
-                    const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
-                    if (!r.ok) {
-                        const bodyText = await r.text().catch(() => '<no body>');
-                        console.error('/asr returned non-OK', r.status, bodyText);
-                        return;
-                    }
+    const filename = `chunk_${Date.now()}.${ext}`;
+    const fd = new FormData();
+    fd.append('audio', e.data, filename);
+    fd.append('client_mime', type);
+    fd.append('chunk_size', String(e.data.size));
 
-                    const j = await r.json();
+    // Optional hint to backend (your backend already treats 'final' as optional)
+    if (justStoppedSpeaking) fd.append('final', '1');
 
-                    // User text (de-dup)
-                    if (j.text && j.text.trim()) {
-                        const normalized = j.text.trim();
-                        if (normalized !== lastUserText) {
-                            lastUserText = normalized;
-                            const userLine = document.createElement('div');
-                            userLine.textContent = `You: ${normalized}`;
-                            transcriptBox.appendChild(userLine);
-                            transcriptBox.scrollTop = transcriptBox.scrollHeight;
-                        }
-                    }
+    const r = await fetch(`${backendUrl}/asr/${sessionId}`, { method: 'POST', body: fd });
+    if (!r.ok) {
+      const bodyText = await r.text().catch(() => '<no body>');
+      console.error('/asr returned non-OK', r.status, bodyText);
+      return;
+    }
 
-                    // AI reply (string or object {text, tts_url})
-                    if (j.ai_text) {
-                        let aiText = "";
-                        let aiTtsUrl = null;
-                        if (typeof j.ai_text === 'string') {
-                            aiText = j.ai_text;
-                        } else if (typeof j.ai_text === 'object') {
-                            aiText = j.ai_text.text || "";
-                            aiTtsUrl = j.ai_text.tts_url || null;
-                        }
-                        if (aiText && aiText.trim()) {
-                            const aiNormalized = aiText.trim();
-                            if (aiNormalized !== lastAiReply) {
-                                lastAiReply = aiNormalized;
-                                const botLine = document.createElement('div');
-                                botLine.textContent = `Agent: ${aiNormalized}`;
-                                transcriptBox.appendChild(botLine);
-                                transcriptBox.scrollTop = transcriptBox.scrollHeight;
+    const j = await r.json();
 
-                                if (aiTtsUrl) {
-                                    const audio = new Audio(aiTtsUrl);
-                                    audio.play().catch(err => { console.error("play aiTtsUrl failed:", err); });
-                                } else {
-                                    await playTTSFromText(aiNormalized);
-                                }
-                            }
-                        }
-                    }
+    // de-dup user text
+    if (j.text && j.text.trim()) {
+      const normalized = j.text.trim();
+      if (normalized !== lastUserText) {
+        lastUserText = normalized;
+        const userLine = document.createElement('div');
+        userLine.textContent = `You: ${normalized}`;
+        transcriptBox.appendChild(userLine);
+        transcriptBox.scrollTop = transcriptBox.scrollHeight;
+      }
+    }
 
-                } catch (err) {
-                    console.error('ASR ondataavailable error:', err);
-                }
-            };
+    // AI reply (string or {text, tts_url})
+    if (j.ai_text) {
+      let aiText = '';
+      let aiTtsUrl = null;
+      if (typeof j.ai_text === 'string') {
+        aiText = j.ai_text;
+      } else if (typeof j.ai_text === 'object') {
+        aiText = j.ai_text.text || '';
+        aiTtsUrl = j.ai_text.tts_url || null;
+      }
+      if (aiText && aiText.trim()) {
+        const aiNorm = aiText.trim();
+        if (aiNorm !== lastAiReply) {
+          lastAiReply = aiNorm;
+          const botLine = document.createElement('div');
+          botLine.textContent = `Agent: ${aiNorm}`;
+          transcriptBox.appendChild(botLine);
+          transcriptBox.scrollTop = transcriptBox.scrollHeight;
 
+          if (aiTtsUrl) {
+            new Audio(aiTtsUrl).play().catch(err => console.error('aiTtsUrl play failed:', err));
+          } else {
+            await playTTSFromText(aiNorm);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('ASR ondataavailable error:', err);
+  }
+};
             mediaRecorder.onerror = (ev) => { console.error("MediaRecorder error:", ev); };
             mediaRecorder.onstop = () => { console.log("MediaRecorder stopped"); };
         }
