@@ -977,24 +977,42 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
       pc.addTrack(t, localStream);
     }
 
-    // 4️⃣ Create SDP offer
-    const offer = await pc.createOffer({ offerToReceiveAudio: true });
-    await pc.setLocalDescription(offer);
+// 4) Create SDP offer
+const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+await pc.setLocalDescription(offer);
 
-    // 5️⃣ Send SDP offer to OpenAI Realtime endpoint
-    const modelId = "gpt-4o-realtime-mini";
+// 5) Exchange SDP with OpenAI Realtime API
+const modelId = "gpt-4o-realtime-mini"; // Or gpt-4o-realtime-preview-2024-10-01 if your API supports that
 
-    const sdpResponse = await fetch(
-      `https://api.openai.com/v1/realtime?model=${encodeURIComponent(modelId)}`,
-      {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${client_secret}`,
-          "Content-Type": "application/sdp",
-        },
-        body: offer.sdp, // raw SDP (not JSON)
-      }
-    );
+const sdpResp = await fetch(
+  `https://api.openai.com/v1/realtime?model=${encodeURIComponent(modelId)}`,
+  {
+    method: "POST",
+    headers: {
+      // 🔑 This short-lived token from your backend
+      "Authorization": `Bearer ${client_secret}`,
+
+      // 🧠 Important headers
+      "Content-Type": "application/sdp",
+      "Accept": "application/sdp",
+      "OpenAI-Beta": "realtime=v1", // <-- 🩵 This is the key fix!
+    },
+
+    // Use localDescription.sdp (the proper SDP offer)
+    body: pc.localDescription.sdp || offer.sdp,
+  }
+);
+
+// Validate response
+if (!sdpResp.ok) {
+  console.error("Realtime SDP failed:", sdpResp.status, await sdpResp.text());
+  throw new Error("SDP exchange failed");
+}
+
+// Apply the answer from OpenAI
+const answerSdp = await sdpResp.text();
+await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+
 
     if (!sdpResponse.ok) {
       const errTxt = await sdpResponse.text();
@@ -1348,3 +1366,4 @@ function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTts
 
 </body>
 </html>
+
