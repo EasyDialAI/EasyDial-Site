@@ -890,21 +890,28 @@ function handleStartAiCall() {
 
   if (USE_REALTIME) {
     startRealtimeCall({
-      name: c.name, company: c.companyName, phone: c.phone, callType: c.callType, reason: c.reason
+      name: c.name,
+      company: c.companyName,
+      phone: c.phone,
+      callType: c.callType,
+      reason: c.reason
     });
   } else {
     startEasyDialCall({
-      name: c.name, company: c.companyName, phone: c.phone, callType: c.callType, reason: c.reason, script: clientScript
+      name: c.name, company: c.companyName, phone: c.phone,
+      callType: c.callType, reason: c.reason, script: clientScript
     });
   }
 }
+
 function checkCampaignReady() {
   const ready = localContacts.length > 0;
   document.getElementById('startAiCallBtn').disabled = !ready;
-  document.getElementById('campaignReadyText').textContent = ready ? `${localContacts.length} contact(s) ready.` : '';
+  document.getElementById('campaignReadyText').textContent =
+    ready ? `${localContacts.length} contact(s) ready.` : '';
 }
 
-// =============== Realtime call (clean, working) ===============
+// ================= Realtime call (clean, strict headers) =================
 async function startRealtimeCall({ name, company, phone, callType, reason }) {
   const modal         = document.getElementById('easyDialModal');
   const transcriptBox = document.getElementById('transcriptBox');
@@ -916,6 +923,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
   const BACKEND_URL = "https://backend.easydialai.com";
 
   let pc, localStream, startedAt;
+
   modal.style.display = 'flex';
   transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
 
@@ -926,23 +934,21 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
       String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
   }, 1000);
 
-  // 1) Get short-lived session token from your backend
-  let client_secret;
+  // 1) Get short-lived session token from backend
+  let client_secret = "";
+  let serverModel = "";
   try {
-    const s = await fetch(`${BACKEND_URL}/realtime/session`, {
-      method: 'POST',
-      // no body, no credentials needed
-    });
-    if (!s.ok) {
-      const txt = await s.text().catch(() => '');
-      throw new Error(`session ${s.status}: ${txt}`);
-    }
+    const s = await fetch(`${BACKEND_URL}/realtime/session`, { method: 'POST' });
+    if (!s.ok) throw new Error(`session ${s.status}: ${await s.text().catch(()=> '')}`);
     const j = await s.json();
-    // Your backend returns { client_secret: "<token>", session_id: "<id>" }
-    client_secret = j?.client_secret?.value || j?.client_secret;
-    if (!client_secret || typeof client_secret !== 'string') {
-      throw new Error('No client_secret string in session response');
-    }
+
+    // Your backend returns { client_secret: "...", session_id: "...", model: "..." (optional) }
+    const maybe = j?.client_secret?.value ?? j?.client_secret ?? j;
+    client_secret = (typeof maybe === "string") ? maybe.trim() : "";
+    if (!client_secret) throw new Error("No client_secret string in session response");
+
+    if (typeof j?.model === "string" && j.model) serverModel = j.model;
+    console.debug("[RT] got client_secret len:", client_secret.length, "model:", serverModel || "(default)");
   } catch (e) {
     console.error('Failed to get realtime session:', e);
     window.showNotification('Realtime not available. Falling back to classic mode.', 'error', 6000);
@@ -952,7 +958,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
   }
 
   try {
-    // 2) PeerConnection (include a public STUN to be safe)
+    // 2) PeerConnection (public STUN helps on some networks)
     pc = new RTCPeerConnection({
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     });
@@ -961,11 +967,10 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
     const remoteAudioEl = new Audio();
     remoteAudioEl.autoplay = true;
     pc.ontrack = (event) => {
-      const [stream] = event.streams;
-      remoteAudioEl.srcObject = stream;
+      remoteAudioEl.srcObject = event.streams[0];
     };
 
-    // Optional: watch model events on datachannel if provided
+    // Optional: model events
     pc.ondatachannel = (ev) => {
       const ch = ev.channel;
       ch.onmessage = (msg) => {
@@ -981,33 +986,36 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
       };
     };
 
-    // 3) Mic BEFORE creating the offer (so SDP has audio m-line)
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    for (const track of localStream.getTracks()) {
-      pc.addTrack(track, localStream);
-    }
+    // 3) Get mic BEFORE creating the offer so the SDP has audio m-line
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+    for (const track of localStream.getTracks()) pc.addTrack(track, localStream);
 
-    // 4) Create & set local SDP
+    // 4) Local SDP
     const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
     await pc.setLocalDescription(offer);
+    console.debug('[RT] offer SDP length:', (offer.sdp || '').length);
 
-    // Debug: inspect the SDP a bit
-    console.debug('[RT] local SDP (first 200):', (pc.localDescription?.sdp || '').slice(0, 200));
-
-    // 5) Exchange SDP with OpenAI Realtime (headers are IMPORTANT)
-    const modelId = 'gpt-4o-realtime-mini'; // or your allowed realtime model
+    // 5) Exchange with OpenAI Realtime — headers are CRITICAL
+    const modelId = serverModel || 'gpt-4o-realtime-mini';
     const realtimeUrl = `https://api.openai.com/v1/realtime?model=${encodeURIComponent(modelId)}`;
 
     const sdpResp = await fetch(realtimeUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${client_secret}`, // short-lived session token
+        'Authorization': `Bearer ${client_secret}`, // short-lived token
         'Content-Type': 'application/sdp',
         'Accept': 'application/sdp',
         'OpenAI-Beta': 'realtime=v1',
       },
-      // send SDP string exactly—no JSON, no extra params
-      body: pc.localDescription?.sdp || offer.sdp,
+      body: offer.sdp, // raw SDP string
+      mode: 'cors',
+      cache: 'no-store'
     });
 
     if (!sdpResp.ok) {
@@ -1019,9 +1027,8 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
     const answerSdp = await sdpResp.text();
     await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
-    // Realtime streams speech; “AI Speak Last” is informational
-    speakBtn.onclick = () =>
-      window.showNotification('Realtime is already streaming speech.', 'info');
+    // Realtime streams speech; “AI Speak Last” is informational only
+    speakBtn.onclick = () => window.showNotification('Realtime is already streaming speech.', 'info');
 
     endCallBtn.onclick = async () => {
       try { localStream?.getTracks()?.forEach(t => t.stop()); pc?.close(); } catch {}
@@ -1343,4 +1350,5 @@ function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTts
 
 </body>
 </html>
+
 
