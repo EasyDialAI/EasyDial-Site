@@ -904,7 +904,7 @@ function checkCampaignReady() {
   document.getElementById('campaignReadyText').textContent = ready ? `${localContacts.length} contact(s) ready.` : '';
 }
 
-// =============== Realtime call (top-level, single definition) ===============
+// =============== Realtime call (clean, working) ===============
 async function startRealtimeCall({ name, company, phone, callType, reason }) {
   const modal         = document.getElementById('easyDialModal');
   const transcriptBox = document.getElementById('transcriptBox');
@@ -912,10 +912,10 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
   const speakBtn      = document.getElementById('speakBtn');
   const timerEl       = document.getElementById('callTimer');
 
-  let pc; 
-  let localStream; 
-  let startedAt;
+  // Use the same backend base you already have elsewhere
+  const BACKEND_URL = "https://backend.easydialai.com";
 
+  let pc, localStream, startedAt;
   modal.style.display = 'flex';
   transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
 
@@ -926,15 +926,22 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
       String(Math.floor(d / 60)).padStart(2, '0') + ':' + String(d % 60).padStart(2, '0');
   }, 1000);
 
-  // 1️⃣ Get short-lived token from your backend
+  // 1) Get short-lived session token from your backend
   let client_secret;
   try {
-    const resp = await fetch(`${BACKEND_URL}/realtime/session`, { method: 'POST' });
-    if (!resp.ok) throw new Error(await resp.text());
-    const json = await resp.json();
-    client_secret = json?.client_secret || json; // <-- FIXED: don’t use .value
+    const s = await fetch(`${BACKEND_URL}/realtime/session`, {
+      method: 'POST',
+      // no body, no credentials needed
+    });
+    if (!s.ok) {
+      const txt = await s.text().catch(() => '');
+      throw new Error(`session ${s.status}: ${txt}`);
+    }
+    const j = await s.json();
+    // Your backend returns { client_secret: "<token>", session_id: "<id>" }
+    client_secret = j?.client_secret?.value || j?.client_secret;
     if (!client_secret || typeof client_secret !== 'string') {
-      throw new Error('No valid client_secret in response');
+      throw new Error('No client_secret string in session response');
     }
   } catch (e) {
     console.error('Failed to get realtime session:', e);
@@ -945,122 +952,92 @@ async function startRealtimeCall({ name, company, phone, callType, reason }) {
   }
 
   try {
-    // 2️⃣ RTCPeerConnection
-    pc = new RTCPeerConnection();
+    // 2) PeerConnection (include a public STUN to be safe)
+    pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
 
-    // Play model audio
+    // Remote audio from model
     const remoteAudioEl = new Audio();
     remoteAudioEl.autoplay = true;
-    pc.ontrack = (event) => { 
-      remoteAudioEl.srcObject = event.streams[0]; 
+    pc.ontrack = (event) => {
+      const [stream] = event.streams;
+      remoteAudioEl.srcObject = stream;
     };
 
-    // Create data channel BEFORE offer — important for Realtime!
-    const dataChannel = pc.createDataChannel("oai-events");
-    dataChannel.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data);
-        if (data?.type === "transcript.completed" && data?.text) {
-          const div = document.createElement('div');
-          div.textContent = `You: ${data.text}`;
-          transcriptBox.appendChild(div);
-          transcriptBox.scrollTop = transcriptBox.scrollHeight;
-        }
-      } catch (err) {
-        console.warn("Non-JSON dataChannel message:", msg.data);
-      }
+    // Optional: watch model events on datachannel if provided
+    pc.ondatachannel = (ev) => {
+      const ch = ev.channel;
+      ch.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data?.type === 'transcript.completed' && data?.text) {
+            const line = document.createElement('div');
+            line.textContent = `You: ${data.text}`;
+            transcriptBox.appendChild(line);
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+          }
+        } catch {}
+      };
     };
 
-    // 3️⃣ Get mic stream
+    // 3) Mic BEFORE creating the offer (so SDP has audio m-line)
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    for (const t of localStream.getTracks()) {
-      pc.addTrack(t, localStream);
+    for (const track of localStream.getTracks()) {
+      pc.addTrack(track, localStream);
     }
 
-// 4) Create SDP offer
-const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
-await pc.setLocalDescription(offer);
+    // 4) Create & set local SDP
+    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+    await pc.setLocalDescription(offer);
 
-// 5) Exchange SDP with OpenAI Realtime API
-const modelId = "gpt-4o-realtime-mini"; // Or gpt-4o-realtime-preview-2024-10-01 if your API supports that
+    // Debug: inspect the SDP a bit
+    console.debug('[RT] local SDP (first 200):', (pc.localDescription?.sdp || '').slice(0, 200));
 
-const sdpResp = await fetch(
-  `https://api.openai.com/v1/realtime?model=${encodeURIComponent(modelId)}`,
-  {
-    method: "POST",
-    headers: {
-      // 🔑 This short-lived token from your backend
-      "Authorization": `Bearer ${client_secret}`,
+    // 5) Exchange SDP with OpenAI Realtime (headers are IMPORTANT)
+    const modelId = 'gpt-4o-realtime-mini'; // or your allowed realtime model
+    const realtimeUrl = `https://api.openai.com/v1/realtime?model=${encodeURIComponent(modelId)}`;
 
-      // 🧠 Important headers
-      "Content-Type": "application/sdp",
-      "Accept": "application/sdp",
-      "OpenAI-Beta": "realtime=v1", // <-- 🩵 This is the key fix!
-    },
+    const sdpResp = await fetch(realtimeUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${client_secret}`, // short-lived session token
+        'Content-Type': 'application/sdp',
+        'Accept': 'application/sdp',
+        'OpenAI-Beta': 'realtime=v1',
+      },
+      // send SDP string exactly—no JSON, no extra params
+      body: pc.localDescription?.sdp || offer.sdp,
+    });
 
-    // Use localDescription.sdp (the proper SDP offer)
-    body: pc.localDescription.sdp || offer.sdp,
-  }
-);
-
-// Validate response
-if (!sdpResp.ok) {
-  console.error("Realtime SDP failed:", sdpResp.status, await sdpResp.text());
-  throw new Error("SDP exchange failed");
-}
-
-// // Apply the answer from OpenAI
-// const answerSdp = await sdpResp.text();
-// await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-
-
-    if (!sdpResponse.ok) {
-      const errTxt = await sdpResponse.text();
-      console.error("Realtime SDP failed:", sdpResponse.status, errTxt);
-      throw new Error(`SDP exchange failed (${sdpResponse.status})`);
+    if (!sdpResp.ok) {
+      const errText = await sdpResp.text().catch(() => '');
+      console.error('Realtime SDP failed:', sdpResp.status, errText);
+      throw new Error(`SDP exchange failed (${sdpResp.status})`);
     }
 
-    const answerSdp = await sdpResponse.text();
-    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+    const answerSdp = await sdpResp.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
-    console.log("✅ Realtime WebRTC connected successfully");
-
-//     // Optional: stop call gracefully on button click
-//     endCallBtn.onclick = () => {
-//       pc.close();
-//       if (localStream) localStream.getTracks().forEach(t => t.stop());
-//       clearInterval(timerInt);
-//       modal.style.display = 'none';
-//       console.log("Call ended.");
-//     };
-
-//   } catch (err) {
-//     console.error("Realtime call error:", err);
-//     window.showNotification("Realtime failed. Try again or use classic mode.", "error", 6000);
-//     modal.style.display = 'none';
-//     clearInterval(timerInt);
-//   }
-// }
-
-    // Real time streams speech; “AI Speak Last” is informational
-    speakBtn.onclick = () => window.showNotification("Realtime is already streaming speech.", "info");
+    // Realtime streams speech; “AI Speak Last” is informational
+    speakBtn.onclick = () =>
+      window.showNotification('Realtime is already streaming speech.', 'info');
 
     endCallBtn.onclick = async () => {
-      try { localStream?.getTracks()?.forEach(t=>t.stop()); pc?.close(); } catch {}
+      try { localStream?.getTracks()?.forEach(t => t.stop()); pc?.close(); } catch {}
       clearInterval(timerInt);
       modal.style.display = 'none';
-      window.showNotification("Call ended.", "success");
+      window.showNotification('Call ended.', 'success');
     };
-
   } catch (err) {
-    console.error("Realtime call error:", err);
-    window.showNotification("Realtime failed. Try again or use classic mode.", "error");
-    try { localStream?.getTracks()?.forEach(t=>t.stop()); pc?.close(); } catch {}
+    console.error('Realtime call error:', err);
+    window.showNotification('Realtime failed. Try again or use classic mode.', 'error');
+    try { localStream?.getTracks()?.forEach(t => t.stop()); pc?.close(); } catch {}
     clearInterval(timerInt);
     modal.style.display = 'none';
   }
 }
-// ================= end Realtime =================
+
 
 // ---------------- Classic pipeline (kept for fallback) ----------------
 async function startEasyDialCall({ name, company, phone, callType, reason, script }) {
@@ -1366,3 +1343,4 @@ function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTts
 
 </body>
 </html>
+
