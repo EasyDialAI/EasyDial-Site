@@ -1009,9 +1009,9 @@ if (!sdpResp.ok) {
   throw new Error("SDP exchange failed");
 }
 
-// Apply the answer from OpenAI
-const answerSdp = await sdpResp.text();
-await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+// // Apply the answer from OpenAI
+// const answerSdp = await sdpResp.text();
+// await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
 
     if (!sdpResponse.ok) {
@@ -1366,4 +1366,3 @@ function openEasyDialModal(sessionId, backendUrl, initialScript = '', initialTts
 
 </body>
 </html>
-
