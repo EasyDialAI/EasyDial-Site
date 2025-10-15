@@ -810,13 +810,11 @@
     }, 5000);
   }
 
-// ---------- REALTIME CALL (agent speaks first, correct model URL, robust channel open) ----------
+// ---------- REALTIME CALL (agent speaks first, robust readiness + session.update) ----------
 async function startRealtimeCall({ name, company, phone, callType, reason, date, time }) {
   const BACKEND_URL =
     (typeof window !== "undefined" && window.BACKEND_URL) || "https://backend.easydialai.com";
-
-  // Use the model you said your key supports
-  const MODEL_ID = "gpt-4o-mini-realtime-preview";
+  const MODEL_ID = "gpt-4o-mini-realtime-preview"; // the model you said your key supports
 
   const modal         = document.getElementById("easyDialModal");
   const transcriptBox = document.getElementById("transcriptBox");
@@ -824,7 +822,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   const speakBtn      = document.getElementById("speakBtn");
   const timerEl       = document.getElementById("callTimer");
 
-  let pc, localStream, startedAt, eventsDC;
+  let pc, localStream, startedAt, eventsDC, iceReady = false, dcReady = false, greetingSent = false;
 
   const cleanup = () => {
     try { localStream?.getTracks()?.forEach(t => t.stop()); } catch {}
@@ -847,15 +845,25 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     timerEl.textContent = String(Math.floor(d / 60)).padStart(2, "0") + ":" + String(d % 60).padStart(2, "0");
   }, 1000);
 
-  // Kick off mic + token in parallel to reduce startup time
+  // Build a natural greeting from the actual contact data
+  const greetingText = (() => {
+    const when = (date && time) ? ` on ${date} at ${time}` : (date ? ` on ${date}` : (time ? ` at ${time}` : ""));
+    const who  = company ? ` from ${company}` : "";
+    const why  = reason ? ` regarding ${reason}` : "";
+    // Hinglish, short, friendly, and asks a question
+    return `Namaste${name ? " " + name : ""}! Main${who} bol raha/rahi hoon. Ye aapki appointment${when}${why} ke baare mein ek quick confirmation call hai. Kya yeh timing aapke liye theek hai?`;
+  })();
+
+  // Kick off mic + ephemeral token in parallel (faster startup)
   const micPromise = navigator.mediaDevices.getUserMedia({ audio: true });
   const tokenPromise = fetch(`${BACKEND_URL}/realtime/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
     body: JSON.stringify({
-      // Optional: pass contact context to backend (if you also want it in server-side instructions)
+      // Optional: let the server record context if you want
       contact: { name, phone, company, callType, reason, appointmentDate: date, appointmentTime: time },
+      model: MODEL_ID
     }),
   }).then(async (s) => {
     if (!s.ok) throw new Error(`session ${s.status}: ${await s.text().catch(() => "")}`);
@@ -885,25 +893,27 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
       bundlePolicy: "max-bundle",
     });
 
-    pc.onconnectionstatechange = () => console.debug("[RT] conn:", pc.connectionState);
-    pc.oniceconnectionstatechange = () => console.debug("[RT] ice:", pc.iceConnectionState);
-
-    // Remote audio
+    // Remote audio (ensure autoplay allowed)
     const remoteAudioEl = new Audio();
     remoteAudioEl.autoplay = true;
+    remoteAudioEl.playsInline = true;
+    remoteAudioEl.muted = false;
     pc.ontrack = (evt) => { remoteAudioEl.srcObject = evt.streams[0]; };
 
-    // Create a datachannel up-front so we control when it's open
-    eventsDC = pc.createDataChannel("oai-events");
-    let dcOpened = false;
-    const onDcOpenQueue = [];
-    eventsDC.onopen = () => {
-      dcOpened = true;
-      console.log("[RT] Datachannel open");
-      // Flush queued messages (e.g., the greeting)
-      while (onDcOpenQueue.length) {
-        try { eventsDC.send(onDcOpenQueue.shift()); } catch {}
+    pc.oniceconnectionstatechange = () => {
+      console.debug("[RT] ice:", pc.iceConnectionState);
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
+        iceReady = true;
+        maybeSendGreeting();
       }
+    };
+
+    // Create the oai-events datachannel ourselves; greet when it's open
+    eventsDC = pc.createDataChannel("oai-events");
+    eventsDC.onopen = () => {
+      console.log("[RT] Data channel open");
+      dcReady = true;
+      maybeSendGreeting();
     };
     eventsDC.onmessage = (msg) => {
       try {
@@ -917,15 +927,15 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
       } catch {/* non-JSON messages */}
     };
 
-    // Add mic BEFORE creating the offer
+    // Add mic BEFORE creating offer so SDP includes audio m-line
     for (const t of localStream.getTracks()) pc.addTrack(t, localStream);
     pc.addTransceiver("audio", { direction: "sendrecv" });
 
-    // Offer
+    // Create local offer & set
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
 
-    // IMPORTANT: include the model in the URL
+    // IMPORTANT: include model in URL and opt in to realtime beta
     const sdpResp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(MODEL_ID)}`, {
       method: "POST",
       headers: {
@@ -940,32 +950,40 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     const answerSdp = await sdpResp.text();
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-    // ---------- Agent speaks first ----------
-    // Compose a natural opening line using the actual form data.
-    const greetText = (() => {
-      const when = (date && time) ? ` on ${date} at ${time}` : "";
-      const who  = company ? ` from ${company}` : "";
-      const why  = reason ? ` regarding ${reason}` : "";
-      return `Namaste! ${name ? name + "," : ""} main${who} bol raha/rahi hoon. Ye aapki appointment${when}${why} ke baare mein ek quick confirmation call hai. Kya yeh timing aapke liye theek hai?`;
-    })();
-
-    // Send response.create AFTER the datachannel is actually open
-    const speakEvent = JSON.stringify({
-      type: "response.create",
-      response: {
-        modalities: ["audio"],
-        conversation: "none",            // do not wait for prior user input
-        instructions: greetText,         // first utterance
-      },
-    });
-
-    if (dcOpened) {
-      eventsDC.send(speakEvent);
-    } else {
-      // queue it until onopen fires (reliable)
-      onDcOpenQueue.push(speakEvent);
-      // hard fallback: if not open in 1500ms, try once anyway
-      setTimeout(() => { if (!dcOpened) { try { eventsDC.send(speakEvent); } catch {} } }, 1500);
+    // Send greeting ONLY when ready (ICE + DC)
+    function sendSessionUpdate() {
+      // Turn detection off so the model doesn't wait for you
+      const evt = {
+        type: "session.update",
+        session: {
+          turn_detection: null,                // disable server VAD for first turn
+          // voice is typically configured server-side; include if you want to override:
+          // voice: "alloy"
+        }
+      };
+      try { eventsDC.send(JSON.stringify(evt)); } catch (e) { console.warn("session.update send failed:", e); }
+    }
+    function sendGreeting() {
+      // First, ensure session config is applied
+      sendSessionUpdate();
+      // Then request an immediate audio response
+      const evt = {
+        type: "response.create",
+        response: {
+          modalities: ["audio", "text"],       // audio back (and text, useful for logs)
+          conversation: "none",                // do not wait for prior user input
+          instructions: greetingText,
+        }
+      };
+      try { eventsDC.send(JSON.stringify(evt)); greetingSent = true; }
+      catch (e) { console.warn("response.create send failed:", e); }
+    }
+    function maybeSendGreeting() {
+      if (!greetingSent && iceReady && dcReady) {
+        sendGreeting();
+        // If still silent after 1.5s, try once more
+        setTimeout(() => { if (!greetingSent) sendGreeting(); }, 1500);
+      }
     }
 
     // UI
