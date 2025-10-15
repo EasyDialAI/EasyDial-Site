@@ -810,10 +810,15 @@
     }, 5000);
   }
 
-// ---------- REALTIME CALL (agent speaks first, robust) ----------
+// ---------- REALTIME CALL (agent speaks first, robust readiness + session.update) ----------
+// ---------- REALTIME CALL (agent greets first, personalized) ----------
 async function startRealtimeCall({ name, company, phone, callType, reason, date, time }) {
-  const BACKEND_URL = (window.BACKEND_URL) || "https://backend.easydialai.com";
-  const MODEL_ID    = "gpt-4o-mini-realtime-preview";  // the model you said your key supports
+  const BACKEND_URL =
+    (typeof window !== "undefined" && window.BACKEND_URL) || "https://backend.easydialai.com";
+
+  // fallbacks if your add-contact form uses other keys
+  const apptDate = date || window?.selectedContact?.date || "";
+  const apptTime = time || window?.selectedContact?.time || "";
 
   const modal         = document.getElementById("easyDialModal");
   const transcriptBox = document.getElementById("transcriptBox");
@@ -821,30 +826,14 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   const speakBtn      = document.getElementById("speakBtn");
   const timerEl       = document.getElementById("callTimer");
 
-  let pc, localStream, startedAt, eventsDC, iceReady = false, dcReady = false, greetingTried = 0;
+  let pc, localStream, startedAt, controlChannel;
 
   const cleanup = () => {
     try { localStream?.getTracks()?.forEach(t => t.stop()); } catch {}
     try { pc?.close(); } catch {}
   };
-  const failOut = (msg, err, timerInt) => {
-    console.error(msg, err || "");
-    window.showNotification("Realtime failed. Try again or use classic mode.", "error");
-    cleanup();
-    clearInterval(timerInt);
-    modal.style.display = "none";
-  };
 
-  // Build a short Hinglish greeting from form data
-  const greetingText = (() => {
-    const when = (date && time) ? ` ${date} ko ${time} par` : (date ? ` ${date} ko` : (time ? ` ${time} par` : ""));
-    const who  = company ? ` ${company} se` : "";
-    const why  = reason ? `, ${reason} ke baare mein` : "";
-    const whoName = name ? ` ${name}` : "";
-    return `Namaste${whoName}! Main${who} bol raha/rahi hoon. Aapki appointment${when}${why} ek chhoti si confirmation hai. Kya yeh timing theek hai?`;
-  })();
-
-  // Show modal + timer
+  // UI open + timer
   modal.style.display = "flex";
   transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
   startedAt = Date.now();
@@ -853,31 +842,28 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     timerEl.textContent = String(Math.floor(d / 60)).padStart(2, "0") + ":" + String(d % 60).padStart(2, "0");
   }, 1000);
 
-  // Get mic + ephemeral token in parallel (reduces perceived delay)
-  const micPromise   = navigator.mediaDevices.getUserMedia({ audio: true });
-  const tokenPromise = fetch(`${BACKEND_URL}/realtime/session`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
-    body: JSON.stringify({
-      model: MODEL_ID,
-      contact: { name, company, phone, callType, reason, date, time }
-    }),
-  }).then(async r => {
-    if (!r.ok) throw new Error(`session ${r.status}: ${await r.text().catch(()=> "")}`);
-    const j = await r.json();
-    const tok = j?.client_secret?.value || j?.client_secret;
-    if (!tok || typeof tok !== "string") throw new Error("No client_secret in session response");
-    return tok;
-  });
-
+  // 1) Get short-lived token, sending the contact payload
   let client_secret;
   try {
-    const [stream, token] = await Promise.all([micPromise, tokenPromise]);
-    localStream   = stream;
-    client_secret = token;
+    const sess = await fetch(`${BACKEND_URL}/realtime/session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({
+        contact: {
+          name, phone, company, companyName: company,
+          callType, reason,
+          date: apptDate, time: apptTime,
+          appointmentDate: apptDate, appointmentTime: apptTime,
+        },
+      }),
+    });
+    if (!sess.ok) throw new Error(`session ${sess.status}: ${await sess.text().catch(() => "")}`);
+    const j = await sess.json();
+    client_secret = (j?.client_secret?.value ?? j?.client_secret ?? "").toString();
+    if (!client_secret) throw new Error("No client_secret string in session response");
   } catch (e) {
-    console.error("Failed to init mic or realtime session:", e);
+    console.error("Failed to get realtime session:", e);
     window.showNotification("Realtime not available. Falling back to classic mode.", "error", 6000);
     modal.style.display = "none";
     clearInterval(timerInt);
@@ -885,105 +871,100 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   }
 
   try {
-    // ----- RTCPeerConnection -----
-    pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      bundlePolicy: "max-bundle",
-    });
+    // 2) RTCPeerConnection
+    pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
-    // Remote audio element
-    const remoteAudioEl = document.createElement("audio");
+    // Create our control data channel so we can send response.create immediately.
+    controlChannel = pc.createDataChannel("oai-events");
+    controlChannel.onopen = () => console.debug("[RT] control channel open");
+    controlChannel.onclose = () => console.debug("[RT] control channel closed");
+    controlChannel.onerror = (e) => console.warn("[RT] control channel error:", e);
+
+    // Optional: handle model-emitted channels (e.g., partial transcripts)
+    pc.ondatachannel = (ev) => {
+      const ch = ev.channel;
+      ch.onopen = () => console.debug("[RT] Data channel open");
+      ch.onmessage = (msg) => {
+        try {
+          const data = JSON.parse(msg.data);
+          if (data?.type === "transcript.completed" && data?.text) {
+            const div = document.createElement("div");
+            div.textContent = `You: ${data.text}`;
+            transcriptBox.appendChild(div);
+            transcriptBox.scrollTop = transcriptBox.scrollHeight;
+          }
+        } catch {/* not JSON? ignore */}
+      };
+    };
+
+    // Remote audio from model
+    const remoteAudioEl = new Audio();
     remoteAudioEl.autoplay = true;
-    remoteAudioEl.playsInline = true;
-    document.body.appendChild(remoteAudioEl); // helps some autoplay policies
     pc.ontrack = (evt) => { remoteAudioEl.srcObject = evt.streams[0]; };
 
-    pc.oniceconnectionstatechange = () => {
-      console.debug("[RT] ice:", pc.iceConnectionState);
-      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") {
-        iceReady = true;
-        maybeGreet();
-      }
-    };
-
-    // Create the events datachannel; greet once it's open + ICE ready
-    eventsDC = pc.createDataChannel("oai-events");
-    eventsDC.onopen = () => { console.log("[RT] Data channel open"); dcReady = true; maybeGreet(); };
-    eventsDC.onmessage = (msg) => {
-      try {
-        const data = JSON.parse(msg.data);
-        if (data?.type === "transcript.completed" && data?.text) {
-          const div = document.createElement("div");
-          div.textContent = `You: ${data.text}`;
-          transcriptBox.appendChild(div);
-          transcriptBox.scrollTop = transcriptBox.scrollHeight;
-        }
-      } catch {}
-    };
-
-    // Add mic BEFORE offer, ensure recv too
+    // 3) Mic BEFORE createOffer
+    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     for (const t of localStream.getTracks()) pc.addTrack(t, localStream);
     pc.addTransceiver("audio", { direction: "sendrecv" });
 
-    const offer = await pc.createOffer({ offerToReceiveAudio: true });
+    // 4) Create local SDP
+    const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
     await pc.setLocalDescription(offer);
 
-    // Exchange SDP with OpenAI
-    const sdpResp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(MODEL_ID)}`, {
+    // 5) Exchange SDP (use your preferred/allowed model here)
+    const MODEL_ID = (window.MODEL_ID) || "gpt-4o-mini-realtime-preview";
+    const realtimeUrl = `https://api.openai.com/v1/realtime?model=${encodeURIComponent(MODEL_ID)}`;
+    const sdpResp = await fetch(realtimeUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${client_secret}`,     // ephemeral token (NOT your API key)
+        "Authorization": `Bearer ${client_secret}`,
         "Content-Type": "application/sdp",
-        Accept: "application/sdp",
+        "Accept": "application/sdp",
         "OpenAI-Beta": "realtime=v1",
       },
-      body: pc.localDescription.sdp,
+      body: pc.localDescription?.sdp || offer.sdp,
     });
-    if (!sdpResp.ok) throw new Error(await sdpResp.text());
+    if (!sdpResp.ok) {
+      const body = await sdpResp.text().catch(() => "");
+      console.error("Realtime SDP failed:", sdpResp.status, body);
+      throw new Error(`SDP exchange failed (${sdpResp.status})`);
+    }
     const answerSdp = await sdpResp.text();
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-    // ---- Greeting flow ----
-    function sendSessionUpdate() {
-      // Make sure the model is not waiting for user voice on turn 1
-      const evt = {
-        type: "session.update",
-        session: {
-          turn_detection: null,
-          instructions:
-            "You are a professional Indian voice agent. Speak in natural Hinglish. " +
-            "Keep replies 1–2 sentences. Always be polite and ask a short, direct question.",
-          // voice: "alloy", // uncomment if you want to force it
-        },
-      };
-      try { eventsDC.send(JSON.stringify(evt)); } catch (e) { console.warn("session.update failed:", e); }
-    }
+    // ---------- FORCE AGENT TO GREET FIRST ----------
+    // Send a response.create event as soon as our control channel is open.
+    const greet = () => {
+      if (!controlChannel || controlChannel.readyState !== "open") return;
+      const greetingPrompt =
+        `Start with a warm greeting to ${name || "ji"} and state you're calling from ${company || "our team"} `
+        + `about ${reason || "their appointment"}. Mention the scheduled time ${appt_date_time()} and ask `
+        + `politely if it still works. Keep it to 1–2 sentences.`;
 
-    function sendGreeting() {
-      sendSessionUpdate();
-      // Ask the model to speak immediately
-      const resp = {
+      const event = {
         type: "response.create",
         response: {
-          modalities: ["audio", "text"],
-          // conversation: "none",   // some stacks accept this; others ignore it. Safe to omit.
-          instructions: greetingText,
+          modalities: ["audio"],
+          instructions: greetingPrompt,
         },
       };
-      try { eventsDC.send(JSON.stringify(resp)); greetingTried++; console.log("[RT] Greeting sent"); }
-      catch (e) { console.warn("response.create failed:", e); }
-    }
+      controlChannel.send(JSON.stringify(event));
+      console.debug("[RT] Greeting sent");
+    };
 
-    function maybeGreet() {
-      if (!iceReady || !dcReady) return;
-      if (greetingTried === 0) {
-        // send once immediately, then one more time after 1s if still nothing
-        sendGreeting();
-        setTimeout(() => { if (greetingTried < 2) sendGreeting(); }, 1000);
-      }
-    }
+    // helper to show date time nicely
+    const appt_date_time = () => {
+      const parts = [apptDate, apptTime].filter(Boolean).join(" ");
+      return parts || "the scheduled time";
+    };
 
-    // UI events
+    if (controlChannel.readyState === "open") {
+      greet();
+    } else {
+      controlChannel.addEventListener("open", greet, { once: true });
+    }
+    // ---------- /FORCE GREETING ----------
+
     speakBtn.onclick = () => window.showNotification("Realtime is already streaming speech.", "info");
     endCallBtn.onclick = async () => {
       cleanup();
@@ -992,10 +973,13 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
       window.showNotification("Call ended.", "success");
     };
   } catch (err) {
-    failOut("Realtime call error:", err, timerInt);
+    console.error("Realtime call error:", err);
+    window.showNotification("Realtime failed. Try again or use classic mode.", "error");
+    cleanup();
+    clearInterval(timerInt);
+    modal.style.display = "none";
   }
 }
-
 
 
   // ---------- CLASSIC (fallback) ----------
