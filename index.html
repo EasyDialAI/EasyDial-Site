@@ -810,15 +810,10 @@
     }, 5000);
   }
 
-// ---------- REALTIME CALL (agent speaks first, robust readiness + session.update) ----------
-// ---------- REALTIME CALL (agent greets first, personalized) ----------
+// ---------- REALTIME CALL (agent speaks first, uses form data) ----------
 async function startRealtimeCall({ name, company, phone, callType, reason, date, time }) {
   const BACKEND_URL =
     (typeof window !== "undefined" && window.BACKEND_URL) || "https://backend.easydialai.com";
-
-  // fallbacks if your add-contact form uses other keys
-  const apptDate = date || window?.selectedContact?.date || "";
-  const apptTime = time || window?.selectedContact?.time || "";
 
   const modal         = document.getElementById("easyDialModal");
   const transcriptBox = document.getElementById("transcriptBox");
@@ -826,64 +821,91 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   const speakBtn      = document.getElementById("speakBtn");
   const timerEl       = document.getElementById("callTimer");
 
-  let pc, localStream, startedAt, controlChannel;
+  let pc, localStream, startedAt, eventsChannel;
 
   const cleanup = () => {
     try { localStream?.getTracks()?.forEach(t => t.stop()); } catch {}
     try { pc?.close(); } catch {}
   };
 
-  // UI open + timer
+  const failOut = (msg, err, timerInt) => {
+    console.error(msg, err || "");
+    window.showNotification("Realtime failed. Try again or use classic mode.", "error");
+    cleanup();
+    clearInterval(timerInt);
+    modal.style.display = "none";
+  };
+
+  // Open modal + timer
   modal.style.display = "flex";
   transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
   startedAt = Date.now();
   const timerInt = setInterval(() => {
     const d = Math.floor((Date.now() - startedAt) / 1000);
-    timerEl.textContent = String(Math.floor(d / 60)).padStart(2, "0") + ":" + String(d % 60).padStart(2, "0");
+    timerEl.textContent =
+      String(Math.floor(d / 60)).padStart(2, "0") + ":" + String(d % 60).padStart(2, "0");
   }, 1000);
 
-  // 1) Get short-lived token, sending the contact payload
-  let client_secret;
-  try {
-    const sess = await fetch(`${BACKEND_URL}/realtime/session`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({
-        contact: {
-          name, phone, company, companyName: company,
-          callType, reason,
-          date: apptDate, time: apptTime,
-          appointmentDate: apptDate, appointmentTime: apptTime,
-        },
-      }),
-    });
-    if (!sess.ok) throw new Error(`session ${sess.status}: ${await sess.text().catch(() => "")}`);
-    const j = await sess.json();
-    client_secret = (j?.client_secret?.value ?? j?.client_secret ?? "").toString();
-    if (!client_secret) throw new Error("No client_secret string in session response");
-  } catch (e) {
-    console.error("Failed to get realtime session:", e);
-    window.showNotification("Realtime not available. Falling back to classic mode.", "error", 6000);
-    modal.style.display = "none";
-    clearInterval(timerInt);
-    return;
-  }
+  // 1) Get short-lived token from backend WITH CONTACT CONTEXT
+ // 1) Fetch ephemeral client secret + a local backend session id
+let client_secret;
+let local_session_id;   // <--- ADD THIS
+try {
+  const s = await fetch(`${BACKEND_URL}/realtime/session`, {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contact: { name, companyName: company, phone, callType, reason }
+    }),
+  });
+  if (!s.ok) throw new Error(`session ${s.status}: ${await s.text().catch(() => "")}`);
+  const j = await s.json();
+  client_secret    = (j?.client_secret?.value ?? j?.client_secret ?? "").toString();
+  local_session_id = j?.session_id;  // <--- CAPTURE OUR sid
+  if (!client_secret) throw new Error("No client_secret string in session response");
+} catch (e) {
+  console.error("Failed to get realtime session:", e);
+  window.showNotification("Realtime not available. Falling back to classic mode.", "error", 6000);
+  modal.style.display = "none";
+  clearInterval(timerInt);
+  return;
+}
+
 
   try {
     // 2) RTCPeerConnection
     pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
 
-    // Create our control data channel so we can send response.create immediately.
-    controlChannel = pc.createDataChannel("oai-events");
-    controlChannel.onopen = () => console.debug("[RT] control channel open");
-    controlChannel.onclose = () => console.debug("[RT] control channel closed");
-    controlChannel.onerror = (e) => console.warn("[RT] control channel error:", e);
+    // Data channel we can use to send events (response.create)
+    eventsChannel = pc.createDataChannel("oai-events");
+    eventsChannel.onopen = () => {
+      console.debug("[RT] Data channel open");
+      // Kick off an immediate greeting so the agent SPEAKS FIRST
+      const greeting =
+        `Namaste ${name || "ji"}, main ${company || "hamari team"} se bol raha/rahi hoon. ` +
+        `${reason || "aaj ki appointment"} ${date || ""} ${time || ""} ke liye hai — ` +
+        `kya yeh time aapke liye theek hai?`;
 
-    // Optional: handle model-emitted channels (e.g., partial transcripts)
+      eventsChannel.send(JSON.stringify({
+        type: "response.create",
+        response: {
+          modalities: ["audio"],         // we only need audio out
+          instructions: greeting,        // the one-liner to speak now
+          conversation: "default",       // default thread
+        }
+      }));
+      console.debug("[RT] Greeting sent");
+    };
+
+    // Play model audio
+    const remoteAudioEl = new Audio();
+    remoteAudioEl.autoplay = true;
+    pc.ontrack = (evt) => { remoteAudioEl.srcObject = evt.streams[0]; };
+
+    // Optional: capture model messages (e.g., transcripts)
     pc.ondatachannel = (ev) => {
       const ch = ev.channel;
-      ch.onopen = () => console.debug("[RT] Data channel open");
       ch.onmessage = (msg) => {
         try {
           const data = JSON.parse(msg.data);
@@ -893,27 +915,22 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
             transcriptBox.appendChild(div);
             transcriptBox.scrollTop = transcriptBox.scrollHeight;
           }
-        } catch {/* not JSON? ignore */}
+        } catch { /* ignore non-JSON */ }
       };
     };
 
-    // Remote audio from model
-    const remoteAudioEl = new Audio();
-    remoteAudioEl.autoplay = true;
-    pc.ontrack = (evt) => { remoteAudioEl.srcObject = evt.streams[0]; };
-
-    // 3) Mic BEFORE createOffer
+    // 3) Add mic BEFORE creating the offer so SDP has audio m-line
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     for (const t of localStream.getTracks()) pc.addTrack(t, localStream);
     pc.addTransceiver("audio", { direction: "sendrecv" });
 
-    // 4) Create local SDP
+    // 4) Create local offer
     const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
     await pc.setLocalDescription(offer);
 
-    // 5) Exchange SDP (use your preferred/allowed model here)
-    const MODEL_ID = (window.MODEL_ID) || "gpt-4o-mini-realtime-preview";
-    const realtimeUrl = `https://api.openai.com/v1/realtime?model=${encodeURIComponent(MODEL_ID)}`;
+    // 5) Exchange SDP with OpenAI
+    // IMPORTANT: use the short-lived client_secret from backend (.env model)
+    const realtimeUrl = `https://api.openai.com/v1/realtime?model=${encodeURIComponent("gpt-4o-mini-realtime-preview")}`;
     const sdpResp = await fetch(realtimeUrl, {
       method: "POST",
       headers: {
@@ -924,47 +941,17 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
       },
       body: pc.localDescription?.sdp || offer.sdp,
     });
+
     if (!sdpResp.ok) {
-      const body = await sdpResp.text().catch(() => "");
-      console.error("Realtime SDP failed:", sdpResp.status, body);
+      const errText = await sdpResp.text().catch(() => "");
+      console.error("Realtime SDP failed:", sdpResp.status, errText);
       throw new Error(`SDP exchange failed (${sdpResp.status})`);
     }
+
     const answerSdp = await sdpResp.text();
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-    // ---------- FORCE AGENT TO GREET FIRST ----------
-    // Send a response.create event as soon as our control channel is open.
-    const greet = () => {
-      if (!controlChannel || controlChannel.readyState !== "open") return;
-      const greetingPrompt =
-        `Start with a warm greeting to ${name || "ji"} and state you're calling from ${company || "our team"} `
-        + `about ${reason || "their appointment"}. Mention the scheduled time ${appt_date_time()} and ask `
-        + `politely if it still works. Keep it to 1–2 sentences.`;
-
-      const event = {
-        type: "response.create",
-        response: {
-          modalities: ["audio"],
-          instructions: greetingPrompt,
-        },
-      };
-      controlChannel.send(JSON.stringify(event));
-      console.debug("[RT] Greeting sent");
-    };
-
-    // helper to show date time nicely
-    const appt_date_time = () => {
-      const parts = [apptDate, apptTime].filter(Boolean).join(" ");
-      return parts || "the scheduled time";
-    };
-
-    if (controlChannel.readyState === "open") {
-      greet();
-    } else {
-      controlChannel.addEventListener("open", greet, { once: true });
-    }
-    // ---------- /FORCE GREETING ----------
-
+    // UI hooks
     speakBtn.onclick = () => window.showNotification("Realtime is already streaming speech.", "info");
     endCallBtn.onclick = async () => {
       cleanup();
@@ -973,13 +960,11 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
       window.showNotification("Call ended.", "success");
     };
   } catch (err) {
-    console.error("Realtime call error:", err);
-    window.showNotification("Realtime failed. Try again or use classic mode.", "error");
-    cleanup();
-    clearInterval(timerInt);
-    modal.style.display = "none";
+    failOut("Realtime call error:", err, timerInt);
   }
 }
+
+
 
 
   // ---------- CLASSIC (fallback) ----------
@@ -1176,4 +1161,3 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   </script>
 </body>
 </html>
-
