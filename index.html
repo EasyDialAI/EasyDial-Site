@@ -810,10 +810,13 @@
     }, 5000);
   }
 
-// ---------- REALTIME CALL (agent speaks first + metadata + faster start) ----------
+// ---------- REALTIME CALL (agent speaks first, correct model URL, robust channel open) ----------
 async function startRealtimeCall({ name, company, phone, callType, reason, date, time }) {
   const BACKEND_URL =
     (typeof window !== "undefined" && window.BACKEND_URL) || "https://backend.easydialai.com";
+
+  // Use the model you said your key supports
+  const MODEL_ID = "gpt-4o-mini-realtime-preview";
 
   const modal         = document.getElementById("easyDialModal");
   const transcriptBox = document.getElementById("transcriptBox");
@@ -821,7 +824,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   const speakBtn      = document.getElementById("speakBtn");
   const timerEl       = document.getElementById("callTimer");
 
-  let pc, localStream, startedAt, dataChannel;
+  let pc, localStream, startedAt, eventsDC;
 
   const cleanup = () => {
     try { localStream?.getTracks()?.forEach(t => t.stop()); } catch {}
@@ -835,7 +838,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     modal.style.display = "none";
   };
 
-  // show modal + timer
+  // Show modal + timer
   modal.style.display = "flex";
   transcriptBox.innerHTML = '<div><i>Call started (Realtime)...</i></div>';
   startedAt = Date.now();
@@ -844,22 +847,15 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     timerEl.textContent = String(Math.floor(d / 60)).padStart(2, "0") + ":" + String(d % 60).padStart(2, "0");
   }, 1000);
 
-  // Kick off mic + token fetch in parallel
+  // Kick off mic + token in parallel to reduce startup time
   const micPromise = navigator.mediaDevices.getUserMedia({ audio: true });
   const tokenPromise = fetch(`${BACKEND_URL}/realtime/session`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     cache: "no-store",
     body: JSON.stringify({
-      contact: {
-        name,
-        phone,
-        company,
-        callType,
-        reason,
-        appointmentDate: date,
-        appointmentTime: time,
-      },
+      // Optional: pass contact context to backend (if you also want it in server-side instructions)
+      contact: { name, phone, company, callType, reason, appointmentDate: date, appointmentTime: time },
     }),
   }).then(async (s) => {
     if (!s.ok) throw new Error(`session ${s.status}: ${await s.text().catch(() => "")}`);
@@ -872,7 +868,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   let client_secret;
   try {
     const [stream, token] = await Promise.all([micPromise, tokenPromise]);
-    localStream = stream;
+    localStream   = stream;
     client_secret = token;
   } catch (e) {
     console.error("Failed to init mic or realtime session:", e);
@@ -883,13 +879,12 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   }
 
   try {
-    // PeerConnection setup
+    // Peer connection
     pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       bundlePolicy: "max-bundle",
     });
 
-    // Debug logs
     pc.onconnectionstatechange = () => console.debug("[RT] conn:", pc.connectionState);
     pc.oniceconnectionstatechange = () => console.debug("[RT] ice:", pc.iceConnectionState);
 
@@ -898,10 +893,19 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     remoteAudioEl.autoplay = true;
     pc.ontrack = (evt) => { remoteAudioEl.srcObject = evt.streams[0]; };
 
-    // Data channel to send/receive events
-    dataChannel = pc.createDataChannel("oai-events");
-    dataChannel.onopen = () => console.log("[RT] Data channel open");
-    dataChannel.onmessage = (msg) => {
+    // Create a datachannel up-front so we control when it's open
+    eventsDC = pc.createDataChannel("oai-events");
+    let dcOpened = false;
+    const onDcOpenQueue = [];
+    eventsDC.onopen = () => {
+      dcOpened = true;
+      console.log("[RT] Datachannel open");
+      // Flush queued messages (e.g., the greeting)
+      while (onDcOpenQueue.length) {
+        try { eventsDC.send(onDcOpenQueue.shift()); } catch {}
+      }
+    };
+    eventsDC.onmessage = (msg) => {
       try {
         const data = JSON.parse(msg.data);
         if (data?.type === "transcript.completed" && data?.text) {
@@ -910,19 +914,19 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
           transcriptBox.appendChild(div);
           transcriptBox.scrollTop = transcriptBox.scrollHeight;
         }
-      } catch {}
+      } catch {/* non-JSON messages */}
     };
 
     // Add mic BEFORE creating the offer
     for (const t of localStream.getTracks()) pc.addTrack(t, localStream);
     pc.addTransceiver("audio", { direction: "sendrecv" });
 
-    // Create local offer
+    // Offer
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);
 
-    // Exchange SDP
-    const sdpResp = await fetch("https://api.openai.com/v1/realtime", {
+    // IMPORTANT: include the model in the URL
+    const sdpResp = await fetch(`https://api.openai.com/v1/realtime?model=${encodeURIComponent(MODEL_ID)}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${client_secret}`,
@@ -936,33 +940,32 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     const answerSdp = await sdpResp.text();
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
 
-    // 🔊 AGENT SPEAKS FIRST — send a “response.create” event to the model
-    // This triggers it to immediately speak its greeting using the session’s instructions.
-    if (dataChannel && dataChannel.readyState === "open") {
-      const event = {
-        type: "response.create",
-        response: {
-          modalities: ["audio"],
-          instructions: "Start the call with a warm greeting and confirm the appointment politely.",
-        },
-      };
-      dataChannel.send(JSON.stringify(event));
-      console.log("[RT] Sent initial speak-first event");
+    // ---------- Agent speaks first ----------
+    // Compose a natural opening line using the actual form data.
+    const greetText = (() => {
+      const when = (date && time) ? ` on ${date} at ${time}` : "";
+      const who  = company ? ` from ${company}` : "";
+      const why  = reason ? ` regarding ${reason}` : "";
+      return `Namaste! ${name ? name + "," : ""} main${who} bol raha/rahi hoon. Ye aapki appointment${when}${why} ke baare mein ek quick confirmation call hai. Kya yeh timing aapke liye theek hai?`;
+    })();
+
+    // Send response.create AFTER the datachannel is actually open
+    const speakEvent = JSON.stringify({
+      type: "response.create",
+      response: {
+        modalities: ["audio"],
+        conversation: "none",            // do not wait for prior user input
+        instructions: greetText,         // first utterance
+      },
+    });
+
+    if (dcOpened) {
+      eventsDC.send(speakEvent);
     } else {
-      // If not open yet, retry once after 1s
-      setTimeout(() => {
-        if (dataChannel?.readyState === "open") {
-          const event = {
-            type: "response.create",
-            response: {
-              modalities: ["audio"],
-              instructions: "Start the call with a warm greeting and confirm the appointment politely.",
-            },
-          };
-          dataChannel.send(JSON.stringify(event));
-          console.log("[RT] Sent delayed speak-first event");
-        }
-      }, 1000);
+      // queue it until onopen fires (reliable)
+      onDcOpenQueue.push(speakEvent);
+      // hard fallback: if not open in 1500ms, try once anyway
+      setTimeout(() => { if (!dcOpened) { try { eventsDC.send(speakEvent); } catch {} } }, 1500);
     }
 
     // UI
@@ -977,7 +980,6 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     failOut("Realtime call error:", err, timerInt);
   }
 }
-
 
 
   // ---------- CLASSIC (fallback) ----------
