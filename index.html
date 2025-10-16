@@ -849,14 +849,27 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
   // 1) Ask backend for the short-lived client_secret AND a local session id
   let client_secret;
   try {
-    const s = await fetch(`${BACKEND_URL}/realtime/session`, {
-      method: "POST",
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contact: { name, companyName: company, phone, callType, reason, date, time }
-      }),
-    });
+    const payload = {
+  contact: {
+    name,
+    companyName: company,
+    phone,
+    callType,
+    reason,
+    date,   // ✅ now added
+    time    // ✅ now added
+  }
+};
+    console.log("[FE] Sending to backend:", payload);
+
+const s = await fetch(`${BACKEND_URL}/realtime/session`, {
+  method: "POST",
+  cache: "no-store",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(payload),
+});
+    
+
     if (!s.ok) throw new Error(`session ${s.status}: ${await s.text().catch(() => "")}`);
     const j = await s.json();
     client_secret = (j?.client_secret?.value ?? j?.client_secret ?? "").toString();
@@ -869,6 +882,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
     clearInterval(timerInt);
     return;
   }
+
 
   try {
     // 2) RTCPeerConnection
@@ -891,6 +905,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
         }
       }));
     };
+    
     eventsChannel.onopen = () => {
       // Fire the greeting as soon as channel is open
       sendGreeting();
@@ -938,6 +953,7 @@ async function startRealtimeCall({ name, company, phone, callType, reason, date,
       },
       body: pc.localDescription?.sdp || offer.sdp,
     });
+    
     if (!sdpResp.ok) {
       const errText = await sdpResp.text().catch(() => "");
       console.error("Realtime SDP failed:", sdpResp.status, errText);
